@@ -1,0 +1,15 @@
+Drop generated `.mp3` files into this folder.
+
+The player expects these filenames:
+- midnight-cache.mp3
+- quiet-bus.mp3
+- after-hours-loop.mp3
+- glass-terminal.mp3
+- night-shift.mp3
+- rain-memory.mp3
+- coal-lights.mp3
+- soft-router.mp3
+- underpass-lights.mp3
+- mercury-hall.mp3
+- phantom-lane.mp3
+- archive-rain.mp3
