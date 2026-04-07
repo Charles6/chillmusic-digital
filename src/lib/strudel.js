@@ -2,6 +2,7 @@ const STRUDEL_SCRIPT_URL = "https://unpkg.com/@strudel/web@1.3.0";
 
 let initPromise = null;
 let ns = null;
+let repl = null;
 
 export async function ensureStrudelReady() {
   if (!initPromise) {
@@ -43,7 +44,7 @@ export async function ensureStrudelReady() {
         ) {
           throw new Error("Strudel globals were not initialised correctly.");
         }
-        await namespace.initStrudel({
+        repl = await namespace.initStrudel({
           prebake: () =>
             namespace.samples("github:tidalcycles/dirt-samples"),
         });
@@ -76,7 +77,11 @@ export function hushStrudel() {
 export function playCode(stackCode, bpm) {
   if (!ns) throw new Error("Strudel is not ready.");
   hushStrudel();
-  const setcpsFn = ns.setcps ?? window.setcps;
-  if (typeof setcpsFn === "function") setcpsFn(bpm / 60);
+  if (typeof repl?.setCps === "function") {
+    repl.setCps(bpm / 60);
+  } else {
+    const setcpsFn = ns.setcps ?? window.setcps;
+    if (typeof setcpsFn === "function") setcpsFn(bpm / 60);
+  }
   new Function("strudel", `with (strudel) { (${stackCode}).play() }`)(ns);
 }

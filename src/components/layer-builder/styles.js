@@ -69,7 +69,7 @@ export const Shell = styled.main`
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 1rem;
-  align-items: start;
+  align-items: stretch;
   padding: 1.5rem 0;
 
   @media (max-width: 960px) {
@@ -505,7 +505,7 @@ export const CodePanel = styled.pre`
   border-radius: 3px;
   box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.65);
   color: #2d8a60;
-  font-family: "Share Tech Mono", monospace;
+  font-family: "Courier New", Courier, monospace;
   font-size: 0.78rem;
   line-height: 1.7;
   overflow: auto;

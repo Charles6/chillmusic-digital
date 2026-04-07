@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ARRANGEMENTS, DEFAULT_CONTEXT } from "../data/arrangements";
 import { BUILTIN_LAYERS } from "../data/layers";
 import { compile } from "../lib/compiler";
@@ -55,6 +55,31 @@ function sortByOrder(layers) {
   return [...layers].sort((a, b) => a.order - b.order);
 }
 
+function sharedPrefixLength(a, b) {
+  const limit = Math.min(a.length, b.length);
+  let index = 0;
+
+  while (index < limit && a[index] === b[index]) {
+    index += 1;
+  }
+
+  return index;
+}
+
+function sharedSuffixLength(a, b, prefixLength) {
+  const maxSuffix = Math.min(a.length, b.length) - prefixLength;
+  let index = 0;
+
+  while (
+    index < maxSuffix &&
+    a[a.length - 1 - index] === b[b.length - 1 - index]
+  ) {
+    index += 1;
+  }
+
+  return index;
+}
+
 export default function LayerBuilder({ initialNewsItems = [] }) {
   const [layers, setLayers] = useState(cloneLayers);
   const [context, setContext] = useState({ ...DEFAULT_CONTEXT });
@@ -100,8 +125,111 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     () => compile(layers, context, { soloId }),
     [layers, context, soloId]
   );
+  const activeLayerIds = useMemo(
+    () =>
+      sortedLayers
+        .filter((layer) => layer.enabled && !isMuted(layer))
+        .map((layer) => layer.id),
+    [sortedLayers, soloId]
+  );
 
   const activeCount = layers.filter((layer) => layer.enabled && !isMuted(layer)).length;
+
+  const [displayedCode, setDisplayedCode] = useState(generatedCode);
+  const typewriterRef = useRef(null);
+  const prevCodeRef = useRef(generatedCode);
+  const prevActiveLayerIdsRef = useRef(activeLayerIds);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      return;
+    }
+
+    if (!stackCode) {
+      hushStrudel();
+      setIsPlaying(false);
+      setEngineStatus("READY");
+      return;
+    }
+
+    let cancelled = false;
+
+    ensureStrudelReady()
+      .then(() => {
+        if (cancelled) {
+          return;
+        }
+        setStrudelVolume(volume);
+        playCode(stackCode, context.bpm);
+        setEngineStatus("PLAYING");
+        setEngineError("");
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setIsPlaying(false);
+        setEngineStatus("ERROR");
+        setEngineError(error instanceof Error ? error.message : String(error));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [context.bpm, isPlaying, stackCode]);
+
+  useEffect(() => {
+    if (typewriterRef.current) clearInterval(typewriterRef.current);
+
+    const prev = prevCodeRef.current;
+    const target = generatedCode;
+    const prevActiveLayerIds = prevActiveLayerIdsRef.current;
+    prevCodeRef.current = target;
+    prevActiveLayerIdsRef.current = activeLayerIds;
+
+    const addedLayerIds = activeLayerIds.filter(
+      (id) => !prevActiveLayerIds.includes(id)
+    );
+    const removedLayerIds = prevActiveLayerIds.filter(
+      (id) => !activeLayerIds.includes(id)
+    );
+
+    if (
+      addedLayerIds.length !== 1 ||
+      removedLayerIds.length > 0 ||
+      target.length <= prev.length
+    ) {
+      setDisplayedCode(target);
+      return;
+    }
+
+    const prefixLength = sharedPrefixLength(prev, target);
+    const suffixLength = sharedSuffixLength(prev, target, prefixLength);
+    const stablePrefix = target.slice(0, prefixLength);
+    const insertedChunk = target.slice(
+      prefixLength,
+      target.length - suffixLength
+    );
+    const stableSuffix = target.slice(target.length - suffixLength);
+
+    if (!insertedChunk) {
+      setDisplayedCode(target);
+      return;
+    }
+
+    setDisplayedCode(`${stablePrefix}${stableSuffix}`);
+    let pos = 0;
+
+    typewriterRef.current = setInterval(() => {
+      pos += 1;
+      setDisplayedCode(
+        `${stablePrefix}${insertedChunk.slice(0, pos)}${stableSuffix}`
+      );
+      if (pos >= insertedChunk.length) clearInterval(typewriterRef.current);
+    }, 6);
+
+    return () => clearInterval(typewriterRef.current);
+  }, [activeLayerIds, generatedCode]);
 
   function resetArrangementSelection() {
     setActiveArrangementId(null);
@@ -174,8 +302,6 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
 
     try {
       await ensureStrudelReady();
-      setStrudelVolume(volume);
-      playCode(stackCode, context.bpm);
       setIsPlaying(true);
       setEngineStatus("PLAYING");
       setEngineError("");
@@ -327,7 +453,7 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
                 {copied ? "Copied ✓" : "Copy"}
               </CopyBtn>
             </CodeHead>
-            <CodePanel>{generatedCode}</CodePanel>
+            <CodePanel>{displayedCode}</CodePanel>
           </Panel>
         </Shell>
       )}
