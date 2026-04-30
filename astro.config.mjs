@@ -7,6 +7,7 @@ export default defineConfig({
   output: "server",
   adapter: cloudflare({
     platformProxy: { enabled: true },
+    cloudflareModules: true,
   }),
   integrations: [react()],
 });

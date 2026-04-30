@@ -1,7 +1,7 @@
 name = "chillmusic-digital"
 pages_build_output_dir = "dist"
-compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2025-03-01"
+compatibility_flags = ["nodejs_compat_v2"]
 
 # Run these once to create the real resources, then paste the IDs back here:
 #   npx wrangler d1 create chillmusic
