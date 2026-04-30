@@ -671,3 +671,140 @@ export const ZenNewsDescription = styled.p`
   font-size: 0.92rem;
   line-height: 1.55;
 `;
+
+// --- Account / Auth modal ---------------------------------------------------
+
+export const AccountBtn = styled(Btn)`
+  background: transparent;
+  color: #2a4850;
+  border-color: #141e28;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.65rem;
+
+  &:hover {
+    color: #9ad7cf;
+    border-color: rgba(154, 215, 207, 0.3);
+    box-shadow: 0 0 8px rgba(154, 215, 207, 0.1);
+  }
+`;
+
+export const SaveBtn = styled(Btn)`
+  background: transparent;
+  color: #2a4850;
+  border-color: #141e28;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.65rem;
+
+  &:hover {
+    color: #00d4b4;
+    border-color: rgba(0, 212, 180, 0.3);
+    box-shadow: 0 0 8px rgba(0, 212, 180, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.2;
+  }
+`;
+
+export const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+`;
+
+export const ModalPanel = styled.div`
+  background: #070c12;
+  border: 1px solid #0d1824;
+  border-radius: 6px;
+  padding: 1.75rem 2rem;
+  width: 100%;
+  max-width: 22rem;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+`;
+
+export const ModalTitle = styled.h2`
+  margin: 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ff8c00;
+  text-shadow: 0 0 14px rgba(255, 140, 0, 0.35);
+`;
+
+export const ModalInput = styled.input`
+  width: 100%;
+  background: #040607;
+  border: 1px solid #0d1824;
+  border-radius: 3px;
+  padding: 0.6rem 0.75rem;
+  color: #9ad7cf;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  outline: none;
+
+  &::placeholder { color: #1e3a48; }
+
+  &:focus {
+    border-color: rgba(0, 212, 180, 0.3);
+    box-shadow: 0 0 8px rgba(0, 212, 180, 0.1);
+  }
+`;
+
+export const ModalError = styled.p`
+  margin: 0;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: #ff3d6b;
+`;
+
+export const ModalHint = styled.p`
+  margin: 0;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: #2a4850;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: #1e3a48;
+
+  &:hover { color: #5c8c91; }
+`;
+
+export const ModalActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+`;
+
+export const ModalSubmitBtn = styled(Btn)`
+  background: rgba(255, 140, 0, 0.1);
+  color: #ff8c00;
+  border-color: rgba(255, 140, 0, 0.35);
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 140, 0, 0.18);
+    box-shadow: 0 0 14px rgba(255, 140, 0, 0.25);
+  }
+
+  &:disabled { opacity: 0.35; }
+`;
+
+export const ModalCancelBtn = styled(Btn)`
+  background: transparent;
+  color: #2a4850;
+  border-color: #141e28;
+
+  &:hover { color: #5c8c91; }
+`;

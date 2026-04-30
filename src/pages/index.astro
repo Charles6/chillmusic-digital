@@ -1,122 +1,15 @@
 ---
 import LayerBuilder from "../components/LayerBuilder.jsx";
+import { getNews } from "../lib/news";
 
-const FEED_SOURCES = [
-  {
-    source: "Reuters",
-    urls: [
-      "https://feeds.reuters.com/reuters/worldNews",
-      "https://news.google.com/rss/search?q=site%3Areuters.com%2Fworld&hl=en-US&gl=US&ceid=US%3Aen",
-    ],
-  },
-  {
-    source: "BBC",
-    urls: [
-      "https://feeds.bbci.co.uk/news/world/rss.xml",
-      "https://feeds.bbci.co.uk/news/rss.xml",
-    ],
-  },
-  {
-    source: "Associated Press",
-    urls: [
-      "https://news.google.com/rss/search?q=site%3Aapnews.com&hl=en-US&gl=US&ceid=US%3Aen",
-      "https://news.google.com/rss/search?q=site%3Aapnews.com%2Fhub&hl=en-US&gl=US&ceid=US%3Aen",
-    ],
-  },
-];
+// Session lookup — commented out until accounts are enabled:
+// import { parseCookieToken, getSession } from "../lib/auth";
 
-function decodeEntities(value = "") {
-  return value
-    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, "$1")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&#160;/g, " ")
-    .replace(/&#xA0;/gi, " ");
-}
+const env = Astro.locals.runtime?.env;
+const kv = env?.CACHE ?? null;
+const ttl = Number(env?.NEWS_CACHE_TTL_SECONDS ?? 300);
 
-function stripHtml(value = "") {
-  return decodeEntities(value).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function parseFeedItems(xml = "", source = "") {
-  return [...xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)]
-    .map((match) => match[0])
-    .map((itemXml) => {
-      const title = itemXml.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? "";
-      const description = itemXml.match(/<description>([\s\S]*?)<\/description>/i)?.[1] ?? "";
-      const link = itemXml.match(/<link>([\s\S]*?)<\/link>/i)?.[1] ?? "";
-
-      return {
-        source,
-        title: stripHtml(title),
-        description: stripHtml(description),
-        link: decodeEntities(link).trim(),
-      };
-    })
-    .filter((item) => item.title && item.link)
-    .slice(0, 10);
-}
-
-async function loadReutersFeed() {
-  const groupedItems = [];
-
-  for (const feedSource of FEED_SOURCES) {
-    let items = [];
-
-    for (const url of feedSource.urls) {
-      try {
-        const response = await fetch(url, {
-          headers: {
-            "user-agent": "Mozilla/5.0",
-            accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
-          },
-        });
-
-        if (!response.ok) {
-          continue;
-        }
-
-        const xml = await response.text();
-        items = parseFeedItems(xml, feedSource.source);
-        if (items.length) {
-          break;
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn(`Unable to load news feed from ${url}`, error);
-        }
-      }
-    }
-
-    if (items.length) {
-      groupedItems.push(items.slice(0, 4));
-    }
-  }
-
-  if (!groupedItems.length) {
-    return [];
-  }
-
-  const maxLength = Math.max(...groupedItems.map((items) => items.length));
-  const alternatedItems = [];
-
-  for (let index = 0; index < maxLength; index += 1) {
-    for (const items of groupedItems) {
-      if (items[index]) {
-        alternatedItems.push(items[index]);
-      }
-    }
-  }
-
-  return alternatedItems;
-}
-
-const reutersNews = await loadReutersFeed();
+const initialNewsItems = await getNews(kv, ttl);
 ---
 
 <!doctype html>
@@ -131,6 +24,6 @@ const reutersNews = await loadReutersFeed();
     />
   </head>
   <body>
-    <LayerBuilder client:load initialNewsItems={reutersNews} />
+    <LayerBuilder client:load initialNewsItems={initialNewsItems} />
   </body>
 </html>

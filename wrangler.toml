@@ -1,0 +1,21 @@
+name = "chillmusic-digital"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Run these once to create the real resources, then paste the IDs back here:
+#   npx wrangler d1 create chillmusic
+#   npx wrangler kv namespace create CACHE
+
+[[d1_databases]]
+binding = "DB"
+database_name = "chillmusic"
+database_id = "df0d35f2-f8bc-4882-a9ce-6471ed29745e"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "45a4e349fdad4bc3915e3dec60be7916"
+
+[vars]
+SESSION_TTL_SECONDS = "604800"   # 7 days
+NEWS_CACHE_TTL_SECONDS = "300"   # 5 minutes

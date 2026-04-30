@@ -11,6 +11,18 @@ import {
 import LayerItem from "./layer-builder/LayerItem";
 import ZenMode from "./layer-builder/ZenMode";
 import {
+  // Auth imports — commented out until accounts are enabled:
+  // AccountBtn,
+  // ModalActions,
+  // ModalCancelBtn,
+  // ModalError,
+  // ModalHint,
+  // ModalInput,
+  // ModalOverlay,
+  // ModalPanel,
+  // ModalSubmitBtn,
+  // ModalTitle,
+  // SaveBtn,
   ArrangeBtn,
   ArrangeRow,
   CodeHead,
@@ -92,6 +104,13 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
   const [engineError, setEngineError] = useState("");
   const [volume, setVolume] = useState(0.8);
   const [copied, setCopied] = useState(false);
+  const [newsItems, setNewsItems] = useState(initialNewsItems);
+
+  // Auth state — commented out until accounts are enabled:
+  // const [user, setUser] = useState(null);
+  // const [authModal, setAuthModal] = useState(null); // null | 'login' | 'register'
+  // const [authForm, setAuthForm] = useState({ email: "", password: "", error: "", loading: false });
+  // const [saveStatus, setSaveStatus] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -326,6 +345,13 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     } catch {}
   }
 
+  // --- Auth handlers — commented out until accounts are enabled: -----------
+  //
+  // function openAuth(mode) { ... }
+  // async function handleAuthSubmit(event) { ... }
+  // async function handleLogout() { ... }
+  // async function handleSavePreferences() { ... }
+
   return (
     <>
       <GlobalStyle />
@@ -339,10 +365,20 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
       {!showControls && (
         <ZenMode
           isPlaying={isPlaying}
-          items={initialNewsItems}
+          items={newsItems}
           onExit={() => setShowControls(true)}
         />
       )}
+
+      {/* Auth modal — commented out until accounts are enabled:
+      {authModal && (
+        <ModalOverlay onClick={() => setAuthModal(null)}>
+          <ModalPanel onClick={(e) => e.stopPropagation()}>
+            ...
+          </ModalPanel>
+        </ModalOverlay>
+      )}
+      */}
 
       {showControls && (
         <Shell>
@@ -437,6 +473,16 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
               <StatusText>
                 {activeCount} layer{activeCount !== 1 ? "s" : ""} · {engineStatus}
               </StatusText>
+              {/* Account / Save buttons — commented out until accounts are enabled:
+              {user ? (
+                <>
+                  <SaveBtn onClick={handleSavePreferences}>...</SaveBtn>
+                  <AccountBtn onClick={handleLogout}>Sign Out</AccountBtn>
+                </>
+              ) : (
+                <AccountBtn onClick={() => openAuth("login")}>Account</AccountBtn>
+              )}
+              */}
               <ZenBtn onClick={() => setShowControls(false)} title="Zen clock mode">
                 ZEN
               </ZenBtn>

@@ -16,41 +16,6 @@ import {
   ZenWeatherSummary,
 } from "./styles";
 
-const WEATHER_LABELS = {
-  0: "Clear",
-  1: "Mostly Clear",
-  2: "Partly Cloudy",
-  3: "Cloudy",
-  45: "Fog",
-  48: "Rime Fog",
-  51: "Light Drizzle",
-  53: "Drizzle",
-  55: "Heavy Drizzle",
-  56: "Freezing Drizzle",
-  57: "Heavy Freezing Drizzle",
-  61: "Light Rain",
-  63: "Rain",
-  65: "Heavy Rain",
-  66: "Freezing Rain",
-  67: "Heavy Freezing Rain",
-  71: "Light Snow",
-  73: "Snow",
-  75: "Heavy Snow",
-  77: "Snow Grains",
-  80: "Rain Showers",
-  81: "Heavy Showers",
-  82: "Violent Showers",
-  85: "Snow Showers",
-  86: "Heavy Snow Showers",
-  95: "Thunderstorm",
-  96: "Thunder and Hail",
-  99: "Severe Thunderstorm",
-};
-
-function getWeatherLabel(code) {
-  return WEATHER_LABELS[code] ?? "Current Conditions";
-}
-
 function useLocalWeather() {
   const [weather, setWeather] = useState({
     summary: "Checking local weather...",
@@ -63,56 +28,20 @@ function useLocalWeather() {
 
     async function loadWeather(position) {
       const { latitude, longitude } = position.coords;
-      const coordinateLabel = `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`;
-      const weatherUrl =
-        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
-        "&current=temperature_2m,weather_code&current_weather=true&temperature_unit=celsius";
-      const locationUrl =
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}` +
-        "&format=jsonv2&zoom=10&addressdetails=1&accept-language=en";
 
       try {
-        const [weatherResponse, locationResult] = await Promise.all([
-          fetch(weatherUrl),
-          fetch(locationUrl).catch(() => null),
-        ]);
-
-        if (!weatherResponse.ok) {
-          throw new Error(`Weather request failed with ${weatherResponse.status}`);
-        }
-
-        const weatherJson = await weatherResponse.json();
-        const locationJson = locationResult?.ok ? await locationResult.json() : null;
-        const current = weatherJson.current ?? weatherJson.current_weather;
-        const temperature = current?.temperature_2m ?? current?.temperature;
-        const weatherCode = current?.weather_code ?? current?.weathercode;
-        const address = locationJson?.address ?? {};
-        const cityName =
-          address.city ||
-          address.town ||
-          address.village ||
-          address.municipality ||
-          address.county ||
-          address.state_district ||
-          locationJson?.name;
-        const regionName = address.state || address.region || address.county;
-        const placeLabel = [cityName, regionName].filter(Boolean).join(", ");
-
-        if (cancelled || temperature === undefined || weatherCode === undefined) {
-          return;
-        }
-
-        setWeather({
-          summary: `${Math.round(temperature)}°C ${getWeatherLabel(weatherCode)}`,
-          location: placeLabel ? `Closest city ${placeLabel}` : "Closest city unavailable",
-          detail: `Coordinates ${coordinateLabel}`,
-        });
+        const response = await fetch(
+          `/api/weather?lat=${latitude}&lon=${longitude}`,
+        );
+        if (!response.ok) throw new Error(`${response.status}`);
+        const data = await response.json();
+        if (!cancelled) setWeather(data);
       } catch {
         if (!cancelled) {
           setWeather({
             summary: "Weather unavailable",
             location: "Closest city unavailable",
-            detail: `Coordinates ${coordinateLabel}`,
+            detail: `Coordinates ${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`,
           });
         }
       }
@@ -128,9 +57,7 @@ function useLocalWeather() {
     }
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        loadWeather(position);
-      },
+      (position) => loadWeather(position),
       () => {
         if (!cancelled) {
           setWeather({
@@ -140,16 +67,10 @@ function useLocalWeather() {
           });
         }
       },
-      {
-        enableHighAccuracy: false,
-        timeout: 8000,
-        maximumAge: 15 * 60 * 1000,
-      }
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 15 * 60 * 1000 },
     );
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   return weather;
