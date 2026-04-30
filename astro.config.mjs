@@ -7,7 +7,13 @@ export default defineConfig({
   output: "server",
   adapter: cloudflare({
     platformProxy: { enabled: true },
-    cloudflareModules: true,
   }),
   integrations: [react()],
+  vite: {
+    resolve: {
+      alias: {
+        "react-dom/server": "react-dom/server.node",
+      },
+    },
+  },
 });
