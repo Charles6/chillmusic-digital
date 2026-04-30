@@ -1,15 +1,5 @@
 ---
 import LayerBuilder from "../components/LayerBuilder.jsx";
-import { getNews } from "../lib/news";
-
-// Session lookup — commented out until accounts are enabled:
-// import { parseCookieToken, getSession } from "../lib/auth";
-
-const env = Astro.locals.runtime?.env;
-const kv = env?.CACHE ?? null;
-const ttl = Number(env?.NEWS_CACHE_TTL_SECONDS ?? 300);
-
-const initialNewsItems = await getNews(kv, ttl);
 ---
 
 <!doctype html>
@@ -24,6 +14,6 @@ const initialNewsItems = await getNews(kv, ttl);
     />
   </head>
   <body>
-    <LayerBuilder client:load initialNewsItems={initialNewsItems} />
+    <LayerBuilder client:only="react" />
   </body>
 </html>

@@ -106,6 +106,14 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
   const [copied, setCopied] = useState(false);
   const [newsItems, setNewsItems] = useState(initialNewsItems);
 
+  useEffect(() => {
+    if (newsItems.length > 0) return;
+    fetch("/api/news")
+      .then((r) => r.ok ? r.json() : [])
+      .then((items) => { if (items.length) setNewsItems(items); })
+      .catch(() => {});
+  }, []);
+
   // Auth state — commented out until accounts are enabled:
   // const [user, setUser] = useState(null);
   // const [authModal, setAuthModal] = useState(null); // null | 'login' | 'register'
