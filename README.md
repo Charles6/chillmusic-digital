@@ -99,7 +99,16 @@ npx wrangler pages deploy dist --project-name=chillmusic-digital
 
 ### Custom domain
 
-After the first deploy, go to your Cloudflare Pages project → Settings → Custom domains and add `chillmusic.digital`. Cloudflare manages the DNS record automatically since the domain is already on Cloudflare.
+After the first deploy, go to **dash.cloudflare.com → Compute (Workers & Pages) → chillmusic-digital → Settings → Domains** and add `chillmusic.digital`. Cloudflare manages the DNS record automatically since the domain is already on Cloudflare.
+
+### Bindings
+
+The Pages project also needs its D1 and KV bindings configured in the dashboard under **Settings → Bindings**:
+
+| Variable name | Type | Resource |
+|---|---|---|
+| `DB` | D1 database | `chillmusic` |
+| `CACHE` | KV namespace | `CACHE` |
 
 ## Accounts (coming soon)
 
