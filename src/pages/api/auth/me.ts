@@ -13,8 +13,11 @@ export const GET: APIRoute = async ({ request, locals }) => {
     });
   }
 
-  return new Response(JSON.stringify({ user: { email: session.email, userId: session.userId } }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({ user: { username: session.username, userId: session.userId } }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
 };

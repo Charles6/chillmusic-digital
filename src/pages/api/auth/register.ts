@@ -7,28 +7,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: "Service unavailable" }, 503);
   }
 
-  let body: { email?: string; password?: string };
+  let body: { username?: string; password?: string };
   try {
     body = await request.json();
   } catch {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  const email = (body.email ?? "").trim().toLowerCase();
+  const username = (body.username ?? "").trim();
   const password = body.password ?? "";
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return json({ error: "A valid email is required" }, 400);
+  if (!username || !/^[a-zA-Z0-9_-]{3,32}$/.test(username)) {
+    return json({ error: "Username must be 3–32 chars (letters, numbers, _ or -)" }, 400);
   }
   if (password.length < 8) {
     return json({ error: "Password must be at least 8 characters" }, 400);
   }
 
-  const existing = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
+  const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ?")
+    .bind(username)
     .first();
   if (existing) {
-    return json({ error: "An account with that email already exists" }, 409);
+    return json({ error: "That username is already taken" }, 409);
   }
 
   const passwordHash = await hashPassword(password);
@@ -36,15 +36,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const now = Date.now();
 
   await env.DB.prepare(
-    "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+    "INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)",
   )
-    .bind(userId, email, passwordHash, now)
+    .bind(userId, username, passwordHash, now)
     .run();
 
   const ttl = Number(env.SESSION_TTL_SECONDS ?? 604800);
-  const token = await createSession(env.CACHE, userId, email, ttl);
+  const token = await createSession(env.CACHE, userId, username, ttl);
 
-  return new Response(JSON.stringify({ email, userId }), {
+  return new Response(JSON.stringify({ username, userId }), {
     status: 201,
     headers: {
       "content-type": "application/json",

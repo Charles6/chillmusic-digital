@@ -110,6 +110,17 @@ The Pages project also needs its D1 and KV bindings configured in the dashboard 
 | `DB` | D1 database | `chillmusic` |
 | `CACHE` | KV namespace | `CACHE` |
 
-## Accounts (coming soon)
+## Accounts and saved sketches
 
-The backend API routes for accounts are already implemented (`/api/auth/*`, `/api/user/preferences`, `schema.sql`) but the frontend login UI is commented out. Search for `commented out until accounts are enabled` to find all the relevant spots.
+Users register with a username + password, sign in, and save named sketches (Strudel code text) that they can browse and copy back later.
+
+- Auth: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- Sketches: `GET /api/sketches`, `POST /api/sketches`, `GET|PUT|DELETE /api/sketches/:id`
+
+Sessions are opaque tokens stored in the `CACHE` KV namespace; passwords are hashed with PBKDF2-SHA256 (100k iterations) via the Web Crypto API. The `users` table holds only `id`, `username`, `password_hash`, `created_at`; the `sketches` table holds `id`, `user_id`, `name`, `code`, `created_at`, `updated_at`.
+
+> **Heads up — the schema is destructive.** `schema.sql` now `DROP TABLE`s the old `users`, `preferences`, and `sketches` tables before recreating them. Running it against your remote D1 will wipe any existing accounts and saved data.
+
+```bash
+npx wrangler d1 execute chillmusic --remote --file=schema.sql
+```

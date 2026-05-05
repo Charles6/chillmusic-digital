@@ -1,266 +1,276 @@
+// A general-purpose background vibe music boilerplate.
+//
+// Eight distinct layers cover the building blocks of most chill / lofi /
+// ambient compositions:
+//
+//   drums   — kick, snare, hats, perc      (rhythmic foundation)
+//   bass    — bass                          (harmonic root)
+//   harmony — chords                        (sustained pad)
+//   melody  — melody                        (foreground line)
+//   fx      — texture                       (atmospheric warmth)
+//
+// Layers route to four FX buses via .orbit():
+//   1 = drums + bass (tight room)
+//   2 = chords (long reverb tail)
+//   3 = melody (long delay)
+//   4 = texture (own space)
+//
+// Each layer is independent — adding or removing one should always produce
+// a coherent result. Defaults aim for an 80–90 BPM background-vibe feel.
+
 export const BUILTIN_LAYERS = [
+  // ── DRUMS ───────────────────────────────────────────────────────────
+
   {
     id: "kick",
-    name: "Kick Foundation",
+    name: "Kick",
     category: "drums",
     order: 0,
     enabled: false,
     muted: false,
-    description: "Steady 4-on-the-floor kick. The rhythmic anchor.",
+    description: "Soft warm kick. Sparse 4-bar feel by default.",
     params: {
-      gain: 1.05,
-      pattern: "bd*4",
+      gain: 0.85,
+      pattern: "bd ~ ~ ~",
+      bank: "RolandTR707",
+      room: 0.1,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0.5, max: 1.5, step: 0.01 },
+      { key: "gain", label: "Gain", type: "range", min: 0, max: 1.5, step: 0.01 },
       { key: "pattern", label: "Pattern", type: "text" },
+      { key: "bank", label: "Bank", type: "text" },
+      { key: "room", label: "Room", type: "range", min: 0, max: 0.5, step: 0.01 },
     ],
-    code: ({ gain, pattern }) => `sound("${pattern}")
-  .gain(${gain})`,
+    code: ({ gain, pattern, bank, room }) => `s("${pattern}")
+  .bank("${bank}")
+  .gain(${gain})
+  .room(${room})`,
   },
 
   {
-    id: "closed-hats",
-    name: "Closed Hats Drive",
+    id: "snare",
+    name: "Snare / Rim",
     category: "drums",
     order: 1,
     enabled: false,
     muted: false,
-    description: "Hi-hat grid. Density from 4 to 16 hits per cycle.",
+    description: "Backbeat on 2 & 4. Try 'sd', 'rim', or 'cp' for the pattern.",
     params: {
-      gain: 0.18,
-      density: 8,
-      hpf: 9000,
+      gain: 0.45,
+      pattern: "~ rim ~ rim",
+      bank: "RolandTR707",
+      room: 0.25,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.5, step: 0.01 },
-      { key: "density", label: "Density", type: "range", min: 4, max: 16, step: 4 },
-      { key: "hpf", label: "HPF (Hz)", type: "range", min: 5000, max: 14000, step: 100 },
+      { key: "gain", label: "Gain", type: "range", min: 0, max: 1, step: 0.01 },
+      { key: "pattern", label: "Pattern", type: "text" },
+      { key: "bank", label: "Bank", type: "text" },
+      { key: "room", label: "Room", type: "range", min: 0, max: 0.6, step: 0.01 },
     ],
-    code: ({ gain, density, hpf }) => `sound("hh*${density}")
+    code: ({ gain, pattern, bank, room }) => `s("${pattern}")
+  .bank("${bank}")
   .gain(${gain})
-  .hpf(${hpf})`,
+  .room(${room})`,
   },
 
   {
-    id: "open-hats",
-    name: "Open Hats Lift",
+    id: "hats",
+    name: "Hats",
     category: "drums",
     order: 2,
     enabled: false,
     muted: false,
-    description: "Sparse open hats on offbeats. Lifts the groove without cluttering.",
+    description: "Crushed hats with random drops for an organic, lofi feel.",
     params: {
-      gain: 0.08,
-      hpf: 8500,
+      gain: 0.3,
+      density: 8,
+      bank: "RolandTR707",
+      crush: 6,
+      degrade: 0.2,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.3, step: 0.01 },
-      { key: "hpf", label: "HPF (Hz)", type: "range", min: 5000, max: 14000, step: 100 },
+      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.6, step: 0.01 },
+      { key: "density", label: "Density", type: "range", min: 4, max: 16, step: 4 },
+      { key: "bank", label: "Bank", type: "text" },
+      { key: "crush", label: "Crush", type: "range", min: 1, max: 16, step: 1 },
+      { key: "degrade", label: "Degrade", type: "range", min: 0, max: 0.6, step: 0.05 },
     ],
-    code: ({ gain, hpf }) => `sound("~ ~ oh ~ ~ ~ oh ~")
-  .gain(${gain})
-  .hpf(${hpf})`,
+    code: ({ gain, density, bank, crush, degrade }) => `s("hh*${density}")
+  .bank("${bank}")
+  .crush(${crush})
+  .degradeBy(${degrade})
+  .gain(${gain})`,
   },
 
   {
-    id: "clap",
-    name: "Clap Groove",
+    id: "perc",
+    name: "Percussion",
     category: "drums",
     order: 3,
     enabled: false,
     muted: false,
-    description: "2-and-4 clap backbeat with subtle room.",
+    description: "Euclidean shaker / rim. Adds swing and human feel without clutter.",
     params: {
-      gain: 0.14,
-      room: 0.12,
+      gain: 0.22,
+      pulses: 5,
+      sound: "sh",
+      bank: "RolandTR707",
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.4, step: 0.01 },
-      { key: "room", label: "Room", type: "range", min: 0, max: 0.5, step: 0.01 },
+      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.5, step: 0.01 },
+      { key: "pulses", label: "Pulses (of 8)", type: "range", min: 1, max: 7, step: 1 },
+      { key: "sound", label: "Sound", type: "text" },
+      { key: "bank", label: "Bank", type: "text" },
     ],
-    code: ({ gain, room }) => `sound("~ cp ~ cp")
-  .gain(${gain})
-  .room(${room})`,
+    code: ({ gain, pulses, sound, bank }) => `s("${sound}(${pulses},8)")
+  .bank("${bank}")
+  .gain(${gain})`,
   },
 
+  // ── BASS ────────────────────────────────────────────────────────────
+
   {
-    id: "rumble",
-    name: "Rumble Pulse",
-    category: "drums",
+    id: "bass",
+    name: "Bass",
+    category: "bass",
     order: 4,
     enabled: false,
     muted: false,
-    description: "Sub-range industrial texture. Slow LPF movement adds depth.",
-    params: {
-      gain: 0.1,
-      lpfMin: 90,
-      lpfMax: 220,
-      room: 0.3,
-    },
-    paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.3, step: 0.01 },
-      { key: "lpfMin", label: "LPF Min", type: "range", min: 60, max: 300, step: 5 },
-      { key: "lpfMax", label: "LPF Max", type: "range", min: 100, max: 500, step: 5 },
-      { key: "room", label: "Room", type: "range", min: 0, max: 0.6, step: 0.01 },
-    ],
-    code: ({ gain, lpfMin, lpfMax, room }) => `sound("<bd ~ ~ ~>*2")
-  .slow(4)
-  .lpf(sine.range(${lpfMin}, ${lpfMax}).slow(18))
-  .gain(${gain})
-  .room(${room})`,
-  },
-
-  {
-    id: "sub-bass",
-    name: "Sub Bass Pulse",
-    category: "bass",
-    order: 5,
-    enabled: false,
-    muted: false,
-    description: "Sawtooth sub following the chord root. Slow filter breath.",
+    description: "Filtered sawtooth root bass. Soft attack keeps it warm.",
     params: {
       gain: 0.5,
+      sound: "sawtooth",
       slow: 2,
-      lpfMin: 180,
-      lpfMax: 800,
-      lpfSpeed: 16,
+      lpf: 700,
+      attack: 0.05,
+      release: 0.4,
     },
     paramDefs: [
       { key: "gain", label: "Gain", type: "range", min: 0, max: 1, step: 0.01 },
-      { key: "slow", label: "Slow", type: "range", min: 1, max: 4, step: 0.5 },
-      { key: "lpfMin", label: "LPF Min", type: "range", min: 80, max: 400, step: 10 },
-      { key: "lpfMax", label: "LPF Max", type: "range", min: 300, max: 1400, step: 10 },
-      { key: "lpfSpeed", label: "LPF Speed", type: "range", min: 4, max: 32, step: 1 },
+      { key: "sound", label: "Sound", type: "text" },
+      { key: "slow", label: "Slow", type: "range", min: 0.5, max: 4, step: 0.5 },
+      { key: "lpf", label: "LPF (Hz)", type: "range", min: 200, max: 2000, step: 10 },
+      { key: "attack", label: "Attack", type: "range", min: 0, max: 0.5, step: 0.01 },
+      { key: "release", label: "Release", type: "range", min: 0, max: 1.5, step: 0.05 },
     ],
-    code: ({ gain, slow, lpfMin, lpfMax, lpfSpeed }, context) =>
+    code: ({ gain, sound, slow, lpf, attack, release }, context) =>
       `note("<${context.bassLine}>")
-  .sound("sawtooth")
+  .sound("${sound}")
   .slow(${slow})
-  .lpf(sine.range(${lpfMin}, ${lpfMax}).slow(${lpfSpeed}))
+  .lpf(${lpf})
+  .attack(${attack})
+  .release(${release})
   .gain(${gain})
   .orbit(1)`,
   },
 
-  {
-    id: "trance-arp",
-    name: "Trance Arp",
-    category: "melody",
-    order: 6,
-    enabled: false,
-    muted: false,
-    description: "Triangle arp cycling the chord tones. Light delay, hypnotic pulse.",
-    params: {
-      gain: 0.14,
-      fast: 2,
-      delay: 0.2,
-    },
-    paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.4, step: 0.01 },
-      { key: "fast", label: "Speed", type: "range", min: 1, max: 4, step: 0.5 },
-      { key: "delay", label: "Delay", type: "range", min: 0, max: 0.5, step: 0.01 },
-    ],
-    code: ({ gain, fast, delay }, context) =>
-      `note("<${context.arpLine}>")
-  .sound("triangle")
-  .fast(${fast})
-  .delay(${delay})
-  .gain(${gain})
-  .orbit(3)`,
-  },
+  // ── HARMONY ─────────────────────────────────────────────────────────
 
   {
-    id: "pad",
-    name: "Minor Pad Wash",
+    id: "chords",
+    name: "Chords",
     category: "harmony",
-    order: 7,
+    order: 5,
     enabled: false,
     muted: false,
-    description: "Supersaw chord wash cycling through the progression. Very slow movement.",
+    description: "Slow chord pad with reverb tail. Long attack/release breathe with the room.",
     params: {
-      gain: 0.18,
-      slow: 8,
-      lpfMin: 700,
-      lpfMax: 3000,
-      room: 0.35,
-      delay: 0.25,
+      gain: 0.28,
+      sound: "triangle",
+      slow: 2,
+      attack: 0.5,
+      release: 1.5,
+      lpf: 2200,
+      room: 0.7,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.5, step: 0.01 },
-      { key: "slow", label: "Slow", type: "range", min: 2, max: 16, step: 1 },
-      { key: "lpfMin", label: "LPF Min", type: "range", min: 200, max: 1400, step: 50 },
-      { key: "lpfMax", label: "LPF Max", type: "range", min: 1000, max: 5000, step: 50 },
-      { key: "room", label: "Room", type: "range", min: 0, max: 0.8, step: 0.01 },
-      { key: "delay", label: "Delay", type: "range", min: 0, max: 0.5, step: 0.01 },
+      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.6, step: 0.01 },
+      { key: "sound", label: "Sound", type: "text" },
+      { key: "slow", label: "Slow", type: "range", min: 1, max: 8, step: 0.5 },
+      { key: "attack", label: "Attack", type: "range", min: 0, max: 2, step: 0.05 },
+      { key: "release", label: "Release", type: "range", min: 0.1, max: 4, step: 0.1 },
+      { key: "lpf", label: "LPF (Hz)", type: "range", min: 500, max: 5000, step: 50 },
+      { key: "room", label: "Room", type: "range", min: 0, max: 1, step: 0.01 },
     ],
-    code: ({ gain, slow, lpfMin, lpfMax, room, delay }, context) =>
+    code: ({ gain, sound, slow, attack, release, lpf, room }, context) =>
       `note("<${context.chordStr}>")
-  .sound("supersaw")
+  .sound("${sound}")
   .slow(${slow})
-  .lpf(sine.range(${lpfMin}, ${lpfMax}).slow(24))
+  .attack(${attack})
+  .release(${release})
+  .lpf(${lpf})
   .room(${room})
-  .delay(${delay})
   .gain(${gain})
   .orbit(2)`,
   },
 
-  // ── LEAD ────────────────────────────────────────────────────────────
+  // ── MELODY ──────────────────────────────────────────────────────────
 
   {
-    id: "ghost-lead",
-    name: "Ghost Lead",
+    id: "melody",
+    name: "Melody",
     category: "melody",
-    order: 8,
+    order: 6,
     enabled: false,
     muted: false,
-    description: "Triangle shimmer that slowly fades in and out. Never takes over.",
+    description: "Sparse melodic line that breathes. Random drops keep it from feeling mechanical.",
     params: {
-      gainMax: 0.12,
-      gainSpeed: 22,
-      room: 0.45,
-      delay: 0.33,
+      gain: 0.18,
+      sound: "triangle",
+      delay: 0.5,
+      delayTime: 0.375,
+      delayFeedback: 0.4,
+      degrade: 0.3,
     },
     paramDefs: [
-      { key: "gainMax", label: "Peak Gain", type: "range", min: 0, max: 0.3, step: 0.01 },
-      { key: "gainSpeed", label: "Fade Speed", type: "range", min: 8, max: 32, step: 1 },
-      { key: "room", label: "Room", type: "range", min: 0, max: 0.8, step: 0.01 },
-      { key: "delay", label: "Delay", type: "range", min: 0, max: 0.6, step: 0.01 },
+      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.5, step: 0.01 },
+      { key: "sound", label: "Sound", type: "text" },
+      { key: "delay", label: "Delay", type: "range", min: 0, max: 0.8, step: 0.01 },
+      { key: "delayTime", label: "Delay Time", type: "range", min: 0.05, max: 0.75, step: 0.005 },
+      { key: "delayFeedback", label: "Delay FB", type: "range", min: 0, max: 0.8, step: 0.01 },
+      { key: "degrade", label: "Degrade", type: "range", min: 0, max: 0.7, step: 0.05 },
     ],
-    code: ({ gainMax, gainSpeed, room, delay }, context) =>
-      `note("<${context.leadLine}>")
-  .sound("triangle")
-  .slow(4)
-  .gain(sine.range(0, ${gainMax}).slow(${gainSpeed}))
-  .room(${room})
+    code: ({ gain, sound, delay, delayTime, delayFeedback, degrade }, context) =>
+      `note("<${context.arpLine}>")
+  .sound("${sound}")
   .delay(${delay})
+  .delaytime(${delayTime})
+  .delayfeedback(${delayFeedback})
+  .degradeBy(${degrade})
+  .gain(${gain})
   .orbit(3)`,
   },
 
   // ── FX ──────────────────────────────────────────────────────────────
 
   {
-    id: "noise-swell",
-    name: "Noise Swell",
+    id: "texture",
+    name: "Texture",
     category: "fx",
-    order: 9,
+    order: 7,
     enabled: false,
     muted: false,
-    description: "Filtered noise with slowly evolving HPF. Adds air and atmosphere.",
+    description: "Vinyl crackle / atmospheric noise. Constant subtle warmth underneath everything.",
     params: {
-      gainMax: 0.04,
-      hpfMin: 2500,
-      hpfMax: 9500,
+      gain: 0.08,
+      sound: "crackle*4",
+      hpf: 1000,
+      hpfMod: 0,
     },
     paramDefs: [
-      { key: "gainMax", label: "Peak Gain", type: "range", min: 0, max: 0.15, step: 0.005 },
-      { key: "hpfMin", label: "HPF Min", type: "range", min: 500, max: 5000, step: 100 },
-      { key: "hpfMax", label: "HPF Max", type: "range", min: 4000, max: 14000, step: 100 },
+      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.3, step: 0.005 },
+      { key: "sound", label: "Sound", type: "text" },
+      { key: "hpf", label: "HPF (Hz)", type: "range", min: 100, max: 5000, step: 50 },
+      { key: "hpfMod", label: "HPF Sweep", type: "range", min: 0, max: 4000, step: 100 },
     ],
-    code: ({ gainMax, hpfMin, hpfMax }) =>
-      `sound("noise*8")
-  .slow(8)
-  .hpf(sine.range(${hpfMin}, ${hpfMax}).slow(24))
-  .gain(sine.range(0, ${gainMax}).slow(20))
-  .orbit(3)`,
+    code: ({ gain, sound, hpf, hpfMod }) => {
+      const hpfExpr = hpfMod > 0
+        ? `sine.range(${hpf}, ${hpf + hpfMod}).slow(20)`
+        : String(hpf);
+      return `s("${sound}")
+  .hpf(${hpfExpr})
+  .gain(${gain})
+  .orbit(4)`;
+    },
   },
 ];

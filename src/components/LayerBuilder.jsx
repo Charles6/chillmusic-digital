@@ -11,18 +11,7 @@ import {
 import LayerItem from "./layer-builder/LayerItem";
 import ZenMode from "./layer-builder/ZenMode";
 import {
-  // Auth imports — commented out until accounts are enabled:
-  // AccountBtn,
-  // ModalActions,
-  // ModalCancelBtn,
-  // ModalError,
-  // ModalHint,
-  // ModalInput,
-  // ModalOverlay,
-  // ModalPanel,
-  // ModalSubmitBtn,
-  // ModalTitle,
-  // SaveBtn,
+  AccountBtn,
   ArrangeBtn,
   ArrangeRow,
   CodeHead,
@@ -36,9 +25,19 @@ import {
   GlobalStyle,
   Label,
   LayerList,
+  ModalActions,
+  ModalCancelBtn,
+  ModalError,
+  ModalHint,
+  ModalInput,
+  ModalOverlay,
+  ModalPanel,
+  ModalSubmitBtn,
+  ModalTitle,
   Notice,
   Panel,
   PlayBtn,
+  SaveBtn,
   Shell,
   Slider,
   StatusText,
@@ -114,11 +113,25 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
       .catch(() => {});
   }, []);
 
-  // Auth state — commented out until accounts are enabled:
-  // const [user, setUser] = useState(null);
-  // const [authModal, setAuthModal] = useState(null); // null | 'login' | 'register'
-  // const [authForm, setAuthForm] = useState({ email: "", password: "", error: "", loading: false });
-  // const [saveStatus, setSaveStatus] = useState("");
+  const [user, setUser] = useState(null);
+  const [authModal, setAuthModal] = useState(null); // null | 'login' | 'register'
+  const [authForm, setAuthForm] = useState({ username: "", password: "", error: "", loading: false });
+  const [sketchesModal, setSketchesModal] = useState(null); // null | 'save' | 'load'
+  const [sketches, setSketches] = useState([]);
+  const [sketchName, setSketchName] = useState("");
+  const [currentSketchId, setCurrentSketchId] = useState(null);
+  const [selectedSketch, setSelectedSketch] = useState(null);
+  const [sketchError, setSketchError] = useState("");
+  const [sketchLoading, setSketchLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : { user: null }))
+      .then((data) => {
+        if (data?.user) setUser(data.user);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -353,12 +366,191 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     } catch {}
   }
 
-  // --- Auth handlers — commented out until accounts are enabled: -----------
-  //
-  // function openAuth(mode) { ... }
-  // async function handleAuthSubmit(event) { ... }
-  // async function handleLogout() { ... }
-  // async function handleSavePreferences() { ... }
+  function openAuth(mode) {
+    setAuthForm({ username: "", password: "", error: "", loading: false });
+    setAuthModal(mode);
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+    setAuthForm((current) => ({ ...current, error: "", loading: true }));
+
+    const path = authModal === "register" ? "/api/auth/register" : "/api/auth/login";
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ username: authForm.username, password: authForm.password }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setAuthForm((current) => ({
+          ...current,
+          error: data?.error ?? "Something went wrong",
+          loading: false,
+        }));
+        return;
+      }
+
+      setUser({ username: data.username, userId: data.userId });
+      setAuthModal(null);
+      setAuthForm({ username: "", password: "", error: "", loading: false });
+    } catch {
+      setAuthForm((current) => ({
+        ...current,
+        error: "Network error",
+        loading: false,
+      }));
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+    } catch {}
+    setUser(null);
+    setSketches([]);
+    setCurrentSketchId(null);
+    setSelectedSketch(null);
+  }
+
+  async function loadSketchList() {
+    setSketchLoading(true);
+    setSketchError("");
+    try {
+      const response = await fetch("/api/sketches", { credentials: "same-origin" });
+      const data = await response.json();
+      if (!response.ok) {
+        setSketchError(data?.error ?? "Failed to load sketches");
+        return;
+      }
+      setSketches(data.sketches ?? []);
+    } catch {
+      setSketchError("Network error");
+    } finally {
+      setSketchLoading(false);
+    }
+  }
+
+  function openSave() {
+    if (!user) {
+      openAuth("login");
+      return;
+    }
+    const current = sketches.find((s) => s.id === currentSketchId);
+    setSketchName(current?.name ?? "");
+    setSketchError("");
+    setSketchesModal("save");
+  }
+
+  function openLoad() {
+    if (!user) {
+      openAuth("login");
+      return;
+    }
+    setSketchError("");
+    setSelectedSketch(null);
+    setSketchesModal("load");
+    loadSketchList();
+  }
+
+  async function handleSaveSketch(event) {
+    event.preventDefault();
+    const name = sketchName.trim();
+    if (!name) {
+      setSketchError("Name is required");
+      return;
+    }
+
+    setSketchLoading(true);
+    setSketchError("");
+
+    const payload = { name, code: generatedCode };
+
+    try {
+      const isUpdate = Boolean(currentSketchId);
+      const response = await fetch(
+        isUpdate ? `/api/sketches/${currentSketchId}` : "/api/sketches",
+        {
+          method: isUpdate ? "PUT" : "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(payload),
+        },
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        setSketchError(data?.error ?? "Failed to save");
+        return;
+      }
+
+      setCurrentSketchId(data.sketch.id);
+      setSketches((current) => {
+        const others = current.filter((s) => s.id !== data.sketch.id);
+        return [data.sketch, ...others];
+      });
+      setSketchesModal(null);
+    } catch {
+      setSketchError("Network error");
+    } finally {
+      setSketchLoading(false);
+    }
+  }
+
+  async function handleSelectSketch(id) {
+    setSketchLoading(true);
+    setSketchError("");
+    try {
+      const response = await fetch(`/api/sketches/${id}`, { credentials: "same-origin" });
+      const data = await response.json();
+      if (!response.ok) {
+        setSketchError(data?.error ?? "Failed to load sketch");
+        return;
+      }
+      setSelectedSketch(data.sketch);
+    } catch {
+      setSketchError("Network error");
+    } finally {
+      setSketchLoading(false);
+    }
+  }
+
+  async function handleCopySelectedSketch() {
+    if (!selectedSketch) return;
+    try {
+      await navigator.clipboard.writeText(selectedSketch.code);
+      setSketchError("Copied to clipboard");
+      window.setTimeout(() => setSketchError(""), 1500);
+    } catch {
+      setSketchError("Copy failed");
+    }
+  }
+
+  async function handleDeleteSketch(id) {
+    if (!window.confirm("Delete this sketch?")) return;
+    setSketchLoading(true);
+    setSketchError("");
+    try {
+      const response = await fetch(`/api/sketches/${id}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setSketchError(data?.error ?? "Failed to delete");
+        return;
+      }
+      setSketches((current) => current.filter((s) => s.id !== id));
+      if (currentSketchId === id) setCurrentSketchId(null);
+    } catch {
+      setSketchError("Network error");
+    } finally {
+      setSketchLoading(false);
+    }
+  }
 
   return (
     <>
@@ -378,15 +570,198 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
         />
       )}
 
-      {/* Auth modal — commented out until accounts are enabled:
       {authModal && (
         <ModalOverlay onClick={() => setAuthModal(null)}>
           <ModalPanel onClick={(e) => e.stopPropagation()}>
-            ...
+            <ModalTitle>{authModal === "register" ? "Create Account" : "Sign In"}</ModalTitle>
+            <form onSubmit={handleAuthSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <ModalInput
+                type="text"
+                placeholder="username"
+                autoComplete="username"
+                value={authForm.username}
+                onChange={(e) => setAuthForm((c) => ({ ...c, username: e.target.value }))}
+                minLength={authModal === "register" ? 3 : undefined}
+                maxLength={32}
+                required
+              />
+              <ModalInput
+                type="password"
+                placeholder="password (8+ chars)"
+                autoComplete={authModal === "register" ? "new-password" : "current-password"}
+                value={authForm.password}
+                onChange={(e) => setAuthForm((c) => ({ ...c, password: e.target.value }))}
+                minLength={authModal === "register" ? 8 : undefined}
+                required
+              />
+              {authForm.error && <ModalError>{authForm.error}</ModalError>}
+              <ModalHint
+                onClick={() => openAuth(authModal === "register" ? "login" : "register")}
+              >
+                {authModal === "register"
+                  ? "Already have an account? Sign in"
+                  : "Need an account? Register"}
+              </ModalHint>
+              <ModalActions>
+                <ModalCancelBtn type="button" onClick={() => setAuthModal(null)}>
+                  Cancel
+                </ModalCancelBtn>
+                <ModalSubmitBtn type="submit" disabled={authForm.loading}>
+                  {authForm.loading ? "..." : authModal === "register" ? "Register" : "Sign In"}
+                </ModalSubmitBtn>
+              </ModalActions>
+            </form>
           </ModalPanel>
         </ModalOverlay>
       )}
-      */}
+
+      {sketchesModal === "save" && (
+        <ModalOverlay onClick={() => setSketchesModal(null)}>
+          <ModalPanel onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>{currentSketchId ? "Update Sketch" : "Save Sketch"}</ModalTitle>
+            <form onSubmit={handleSaveSketch} style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <ModalInput
+                type="text"
+                placeholder="sketch name"
+                value={sketchName}
+                onChange={(e) => setSketchName(e.target.value)}
+                maxLength={120}
+                required
+                autoFocus
+              />
+              {sketchError && <ModalError>{sketchError}</ModalError>}
+              <ModalActions>
+                {currentSketchId && (
+                  <ModalCancelBtn
+                    type="button"
+                    onClick={() => setCurrentSketchId(null)}
+                    title="Save as a new sketch instead of updating"
+                  >
+                    Save as New
+                  </ModalCancelBtn>
+                )}
+                <ModalCancelBtn type="button" onClick={() => setSketchesModal(null)}>
+                  Cancel
+                </ModalCancelBtn>
+                <ModalSubmitBtn type="submit" disabled={sketchLoading}>
+                  {sketchLoading ? "..." : "Save"}
+                </ModalSubmitBtn>
+              </ModalActions>
+            </form>
+          </ModalPanel>
+        </ModalOverlay>
+      )}
+
+      {sketchesModal === "load" && (
+        <ModalOverlay onClick={() => setSketchesModal(null)}>
+          <ModalPanel onClick={(e) => e.stopPropagation()} style={{ maxWidth: "32rem" }}>
+            <ModalTitle>{selectedSketch ? selectedSketch.name : "Saved Sketches"}</ModalTitle>
+            {sketchError && <ModalError>{sketchError}</ModalError>}
+
+            {!selectedSketch && (
+              <>
+                {sketchLoading && sketches.length === 0 && <ModalHint>Loading...</ModalHint>}
+                {!sketchLoading && sketches.length === 0 && !sketchError && (
+                  <ModalHint>No saved sketches yet.</ModalHint>
+                )}
+                {sketches.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", maxHeight: "20rem", overflowY: "auto" }}>
+                    {sketches.map((sketch) => (
+                      <div
+                        key={sketch.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          padding: "0.5rem 0.6rem",
+                          background: "#040607",
+                          border: "1px solid #0d1824",
+                          borderRadius: "3px",
+                          fontFamily: "Share Tech Mono, monospace",
+                          fontSize: "0.78rem",
+                          color: "#9ad7cf",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleSelectSketch(sketch.id)}
+                          style={{
+                            flex: 1,
+                            textAlign: "left",
+                            background: "transparent",
+                            border: 0,
+                            color: "inherit",
+                            font: "inherit",
+                            cursor: "pointer",
+                            padding: 0,
+                          }}
+                        >
+                          {sketch.name}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSketch(sketch.id)}
+                          title="Delete"
+                          style={{
+                            background: "transparent",
+                            border: 0,
+                            color: "#ff3d6b",
+                            cursor: "pointer",
+                            padding: "0 0.25rem",
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {selectedSketch && (
+              <>
+                <pre
+                  style={{
+                    margin: 0,
+                    padding: "0.75rem",
+                    background: "#040607",
+                    border: "1px solid #0d1824",
+                    borderRadius: "3px",
+                    fontFamily: "Share Tech Mono, monospace",
+                    fontSize: "0.75rem",
+                    color: "#9ad7cf",
+                    maxHeight: "22rem",
+                    overflow: "auto",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {selectedSketch.code}
+                </pre>
+              </>
+            )}
+
+            <ModalActions>
+              {selectedSketch ? (
+                <>
+                  <ModalCancelBtn type="button" onClick={() => setSelectedSketch(null)}>
+                    Back
+                  </ModalCancelBtn>
+                  <ModalSubmitBtn type="button" onClick={handleCopySelectedSketch}>
+                    Copy
+                  </ModalSubmitBtn>
+                </>
+              ) : (
+                <ModalCancelBtn type="button" onClick={() => setSketchesModal(null)}>
+                  Close
+                </ModalCancelBtn>
+              )}
+            </ModalActions>
+          </ModalPanel>
+        </ModalOverlay>
+      )}
 
       {showControls && (
         <Shell>
@@ -481,16 +856,21 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
               <StatusText>
                 {activeCount} layer{activeCount !== 1 ? "s" : ""} · {engineStatus}
               </StatusText>
-              {/* Account / Save buttons — commented out until accounts are enabled:
               {user ? (
                 <>
-                  <SaveBtn onClick={handleSavePreferences}>...</SaveBtn>
-                  <AccountBtn onClick={handleLogout}>Sign Out</AccountBtn>
+                  <SaveBtn onClick={openSave} title={currentSketchId ? "Update sketch" : "Save sketch"}>
+                    Save
+                  </SaveBtn>
+                  <SaveBtn onClick={openLoad} title="Load a saved sketch">
+                    Load
+                  </SaveBtn>
+                  <AccountBtn onClick={handleLogout} title={user.username}>
+                    Sign Out
+                  </AccountBtn>
                 </>
               ) : (
                 <AccountBtn onClick={() => openAuth("login")}>Account</AccountBtn>
               )}
-              */}
               <ZenBtn onClick={() => setShowControls(false)} title="Zen clock mode">
                 ZEN
               </ZenBtn>

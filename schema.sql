@@ -1,17 +1,27 @@
 -- Run against your D1 database:
 --   npx wrangler d1 execute chillmusic --remote --file=schema.sql
+--
+-- This schema is destructive: it drops any existing users/preferences/sketches
+-- data so the simplified shape (username + sketches only) takes effect.
 
-CREATE TABLE IF NOT EXISTS users (
-  id          TEXT    PRIMARY KEY,
-  email       TEXT    UNIQUE NOT NULL,
-  password_hash TEXT  NOT NULL,
-  created_at  INTEGER NOT NULL
+DROP TABLE IF EXISTS preferences;
+DROP TABLE IF EXISTS sketches;
+DROP TABLE IF EXISTS users;
+
+CREATE TABLE users (
+  id            TEXT    PRIMARY KEY,
+  username      TEXT    UNIQUE NOT NULL,
+  password_hash TEXT    NOT NULL,
+  created_at    INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS preferences (
-  user_id     TEXT    PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  bpm         INTEGER NOT NULL DEFAULT 130,
-  active_layers TEXT  NOT NULL DEFAULT '[]',
-  layer_params  TEXT  NOT NULL DEFAULT '{}',
+CREATE TABLE sketches (
+  id          TEXT    PRIMARY KEY,
+  user_id     TEXT    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT    NOT NULL,
+  code        TEXT    NOT NULL,
+  created_at  INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL
 );
+
+CREATE INDEX idx_sketches_user ON sketches(user_id, updated_at DESC);

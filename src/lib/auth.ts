@@ -3,7 +3,7 @@
 
 export interface SessionData {
   userId: string;
-  email: string;
+  username: string;
   expiresAt: number;
 }
 
@@ -75,13 +75,13 @@ function randomToken(): string {
 export async function createSession(
   kv: KVNamespace,
   userId: string,
-  email: string,
+  username: string,
   ttlSeconds: number,
 ): Promise<string> {
   const token = randomToken();
   const data: SessionData = {
     userId,
-    email,
+    username,
     expiresAt: Date.now() + ttlSeconds * 1000,
   };
   await kv.put(`session:${token}`, JSON.stringify(data), { expirationTtl: ttlSeconds });

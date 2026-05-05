@@ -10,10 +10,8 @@ export default defineConfig({
   }),
   integrations: [react()],
   vite: {
-    resolve: {
-      alias: {
-        "react-dom/server": "react-dom/server.node",
-      },
+    ssr: {
+      external: ["react-dom", "react"],
     },
   },
 });
