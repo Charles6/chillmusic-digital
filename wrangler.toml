@@ -2,6 +2,12 @@ name = "chillmusic-digital"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat_v2"]
 
+[[custom_domains]]
+hostname = "chillmusic.digital"
+
+[[custom_domains]]
+hostname = "www.chillmusic.digital"
+
 # Run these once to create the real resources, then paste the IDs back here:
 #   npx wrangler d1 create chillmusic
 #   npx wrangler kv namespace create CACHE
