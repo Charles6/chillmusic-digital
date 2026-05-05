@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers";
 import { parseCookieToken, getSession } from "../../../lib/auth";
 
 interface SketchRow {
@@ -10,9 +11,8 @@ interface SketchRow {
 }
 
 // GET /api/sketches/:id
-export const GET: APIRoute = async ({ params, request, locals }) => {
-  const env = locals.runtime?.env;
-  if (!env?.DB || !env?.CACHE) {
+export const GET: APIRoute = async ({ params, request }) => {
+  if (!env.DB || !env.CACHE) {
     return json({ error: "Service unavailable" }, 503);
   }
 
@@ -51,9 +51,8 @@ export const GET: APIRoute = async ({ params, request, locals }) => {
 };
 
 // PUT /api/sketches/:id — rename or update code
-export const PUT: APIRoute = async ({ params, request, locals }) => {
-  const env = locals.runtime?.env;
-  if (!env?.DB || !env?.CACHE) {
+export const PUT: APIRoute = async ({ params, request }) => {
+  if (!env.DB || !env.CACHE) {
     return json({ error: "Service unavailable" }, 503);
   }
 
@@ -120,9 +119,8 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 };
 
 // DELETE /api/sketches/:id
-export const DELETE: APIRoute = async ({ params, request, locals }) => {
-  const env = locals.runtime?.env;
-  if (!env?.DB || !env?.CACHE) {
+export const DELETE: APIRoute = async ({ params, request }) => {
+  if (!env.DB || !env.CACHE) {
     return json({ error: "Service unavailable" }, 503);
   }
 

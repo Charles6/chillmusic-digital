@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers";
 import { parseCookieToken, getSession } from "../../../lib/auth";
 
 interface SketchRow {
@@ -20,9 +21,8 @@ function serialize(row: SketchRow) {
 }
 
 // GET /api/sketches — list all sketches for the current user
-export const GET: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime?.env;
-  if (!env?.DB || !env?.CACHE) {
+export const GET: APIRoute = async ({ request }) => {
+  if (!env.DB || !env.CACHE) {
     return json({ error: "Service unavailable" }, 503);
   }
 
@@ -41,9 +41,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
 };
 
 // POST /api/sketches — create a new sketch
-export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime?.env;
-  if (!env?.DB || !env?.CACHE) {
+export const POST: APIRoute = async ({ request }) => {
+  if (!env.DB || !env.CACHE) {
     return json({ error: "Service unavailable" }, 503);
   }
 

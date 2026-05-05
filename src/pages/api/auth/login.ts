@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers";
 import {
   verifyPassword,
   createSession,
@@ -7,9 +8,8 @@ import {
   getSession,
 } from "../../../lib/auth";
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  const env = locals.runtime?.env;
-  if (!env?.DB || !env?.CACHE) {
+export const POST: APIRoute = async ({ request }) => {
+  if (!env.DB || !env.CACHE) {
     return json({ error: "Service unavailable" }, 503);
   }
 

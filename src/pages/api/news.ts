@@ -1,10 +1,10 @@
 import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers";
 import { getNews } from "../../lib/news";
 
-export const GET: APIRoute = async ({ locals }) => {
-  const env = locals.runtime?.env;
-  const kv = env?.CACHE ?? null;
-  const ttl = Number(env?.NEWS_CACHE_TTL_SECONDS ?? 300);
+export const GET: APIRoute = async () => {
+  const kv = env.CACHE ?? null;
+  const ttl = Number(env.NEWS_CACHE_TTL_SECONDS ?? 300);
 
   try {
     const items = await getNews(kv, ttl);
