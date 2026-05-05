@@ -1,5 +1,5 @@
 // Post-processes the wrangler.json that @astrojs/cloudflare@13 generates in
-// dist/server/ before deployment. Fixes three issues:
+// dist/server/ before deployment. Fixes four issues:
 //
 //  1. SESSION KV binding is auto-added by the adapter even though this app
 //     uses its own session system (via the CACHE binding). Remove it so
@@ -10,8 +10,11 @@
 //
 //  3. IMAGES binding is added for compile-time image optimization support,
 //     which this app doesn't use. Remove it to avoid spurious binding errors.
+//
+//  4. The adapter also writes .wrangler/deploy/config.json at the repo root.
+//     Having two config files confuses wrangler deploy. Remove it.
 
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, rmSync, existsSync } from "fs";
 
 const path = "dist/server/wrangler.json";
 const cfg = JSON.parse(readFileSync(path, "utf8"));
@@ -30,3 +33,10 @@ delete cfg.images;
 
 writeFileSync(path, JSON.stringify(cfg, null, 2));
 console.log("dist/server/wrangler.json cleaned.");
+
+// Remove the extra deploy config wrangler would find alongside dist/server/wrangler.json.
+const deployConfig = ".wrangler/deploy/config.json";
+if (existsSync(deployConfig)) {
+  rmSync(deployConfig);
+  console.log(".wrangler/deploy/config.json removed.");
+}
