@@ -31,6 +31,12 @@ cfg.kv_namespaces = (cfg.kv_namespaces ?? []).filter((kv) => {
 // IMAGES binding — not used.
 delete cfg.images;
 
+// pages_build_output_dir triggers Pages mode in wrangler, breaking Workers + Assets deploy.
+delete cfg.pages_build_output_dir;
+// Internal adapter fields that shouldn't appear in the deployed config.
+delete cfg.configPath;
+delete cfg.userConfigPath;
+
 writeFileSync(path, JSON.stringify(cfg, null, 2));
 console.log("dist/server/wrangler.json cleaned.");
 
