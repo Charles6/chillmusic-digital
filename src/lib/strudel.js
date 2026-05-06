@@ -48,7 +48,11 @@ export async function ensureStrudelReady() {
           prebake: () =>
             Promise.all([
               namespace.samples("github:tidalcycles/dirt-samples"),
-              namespace.samples("github:ritchse/tidal-drum-machines"),
+              namespace
+                .samples("github:eddyflux/crate")
+                .catch((err) =>
+                  console.warn("drum-machine pack failed to load", err)
+                ),
             ]),
         });
         window.__chillMusicStrudelReady = true;

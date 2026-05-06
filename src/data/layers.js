@@ -41,8 +41,9 @@ export const BUILTIN_LAYERS = [
       { key: "bank", label: "Bank", type: "text" },
       { key: "room", label: "Room", type: "range", min: 0, max: 0.5, step: 0.01 },
     ],
-    code: ({ gain, pattern, bank, room }) => `s("${pattern}")
-  .bank("${bank}")
+    code: ({ gain, pattern, bank, room }) => `s("${pattern}")${
+      bank ? `\n  .bank("${bank}")` : ""
+    }
   .gain(${gain})
   .room(${room})`,
   },
@@ -67,8 +68,9 @@ export const BUILTIN_LAYERS = [
       { key: "bank", label: "Bank", type: "text" },
       { key: "room", label: "Room", type: "range", min: 0, max: 0.6, step: 0.01 },
     ],
-    code: ({ gain, pattern, bank, room }) => `s("${pattern}")
-  .bank("${bank}")
+    code: ({ gain, pattern, bank, room }) => `s("${pattern}")${
+      bank ? `\n  .bank("${bank}")` : ""
+    }
   .gain(${gain})
   .room(${room})`,
   },
@@ -95,8 +97,9 @@ export const BUILTIN_LAYERS = [
       { key: "crush", label: "Crush", type: "range", min: 1, max: 16, step: 1 },
       { key: "degrade", label: "Degrade", type: "range", min: 0, max: 0.6, step: 0.05 },
     ],
-    code: ({ gain, density, bank, crush, degrade }) => `s("hh*${density}")
-  .bank("${bank}")
+    code: ({ gain, density, bank, crush, degrade }) => `s("hh*${density}")${
+      bank ? `\n  .bank("${bank}")` : ""
+    }
   .crush(${crush})
   .degradeBy(${degrade})
   .gain(${gain})`,
@@ -122,8 +125,9 @@ export const BUILTIN_LAYERS = [
       { key: "sound", label: "Sound", type: "text" },
       { key: "bank", label: "Bank", type: "text" },
     ],
-    code: ({ gain, pulses, sound, bank }) => `s("${sound}(${pulses},8)")
-  .bank("${bank}")
+    code: ({ gain, pulses, sound, bank }) => `s("${sound}(${pulses},8)")${
+      bank ? `\n  .bank("${bank}")` : ""
+    }
   .gain(${gain})`,
   },
 
