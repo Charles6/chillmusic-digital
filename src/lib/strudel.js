@@ -46,7 +46,10 @@ export async function ensureStrudelReady() {
         }
         repl = await namespace.initStrudel({
           prebake: () =>
-            namespace.samples("github:tidalcycles/dirt-samples"),
+            Promise.all([
+              namespace.samples("github:tidalcycles/dirt-samples"),
+              namespace.samples("github:ritchse/tidal-drum-machines"),
+            ]),
         });
         window.__chillMusicStrudelReady = true;
       }
