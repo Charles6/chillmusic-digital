@@ -117,7 +117,7 @@ export const BUILTIN_LAYERS = [
       gain: 0.22,
       pulses: 5,
       sound: "sh",
-      bank: "RolandTR707",
+      bank: "",
     },
     paramDefs: [
       { key: "gain", label: "Gain", type: "range", min: 0, max: 0.5, step: 0.01 },
