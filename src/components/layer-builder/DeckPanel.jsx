@@ -1,5 +1,5 @@
 import React from "react";
-import styledImport, { keyframes } from "styled-components";
+import styledImport, { css, keyframes } from "styled-components";
 
 const styled = styledImport.default ?? styledImport;
 
@@ -77,9 +77,10 @@ const StaticTrace = styled.path`
 
 // Pad circles at circuit junctions
 const Pad = styled.circle`
-  animation: ${({ $playing }) =>
-      $playing ? `${padPulse} 1.8s ease-in-out infinite` : "none"}
-    ${({ $delay }) => $delay || "0s"};
+  ${({ $playing, $delay }) =>
+    $playing
+      ? css`animation: ${padPulse} 1.8s ease-in-out infinite ${$delay || "0s"};`
+      : ""}
 `;
 
 // ── LCD status panel ─────────────────────────────────────────────────────────
