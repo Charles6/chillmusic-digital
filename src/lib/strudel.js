@@ -44,15 +44,15 @@ export async function ensureStrudelReady() {
         ) {
           throw new Error("Strudel globals were not initialised correctly.");
         }
+        // Mirror the strudel.cc REPL prebake: load the dough-samples mirror
+        // for both Dirt-Samples and the tidal-drum-machines manifest, which
+        // is what makes .bank("RolandTR707") and friends actually resolve.
+        const DOUGH = "https://raw.githubusercontent.com/felixroos/dough-samples/main";
         repl = await namespace.initStrudel({
           prebake: () =>
             Promise.all([
-              namespace.samples("github:tidalcycles/dirt-samples"),
-              namespace
-                .samples("github:eddyflux/crate")
-                .catch((err) =>
-                  console.warn("drum-machine pack failed to load", err)
-                ),
+              namespace.samples(`${DOUGH}/tidal-drum-machines.json`),
+              namespace.samples(`${DOUGH}/Dirt-Samples.json`),
             ]),
         });
         window.__chillMusicStrudelReady = true;
