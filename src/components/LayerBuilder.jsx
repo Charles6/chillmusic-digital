@@ -8,10 +8,10 @@ import {
   playCode,
   setStrudelVolume,
 } from "../lib/strudel";
+import DeckPanel from "./layer-builder/DeckPanel";
 import LayerItem from "./layer-builder/LayerItem";
 import ZenMode from "./layer-builder/ZenMode";
 import {
-  AccountBtn,
   ArrangeBtn,
   ArrangeRow,
   CodeHead,
@@ -21,7 +21,6 @@ import {
   DisplayValue,
   Divider,
   Eyebrow,
-  Footer,
   GlobalStyle,
   Label,
   LayerList,
@@ -36,14 +35,9 @@ import {
   ModalTitle,
   Notice,
   Panel,
-  PlayBtn,
-  SaveBtn,
   Shell,
   Slider,
-  StatusText,
-  StopBtn,
   Title,
-  ZenBtn,
 } from "./layer-builder/styles";
 
 function cloneLayers() {
@@ -848,33 +842,21 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
               </DisplayValue>
             </DisplayBar>
 
-            <Footer>
-              <PlayBtn onClick={handlePlay} disabled={!stackCode}>
-                {isPlaying ? "Restart" : "Play"}
-              </PlayBtn>
-              <StopBtn onClick={handleStop}>Stop</StopBtn>
-              <StatusText>
-                {activeCount} layer{activeCount !== 1 ? "s" : ""} · {engineStatus}
-              </StatusText>
-              {user ? (
-                <>
-                  <SaveBtn onClick={openSave} title={currentSketchId ? "Update sketch" : "Save sketch"}>
-                    Save
-                  </SaveBtn>
-                  <SaveBtn onClick={openLoad} title="Load a saved sketch">
-                    Load
-                  </SaveBtn>
-                  <AccountBtn onClick={handleLogout} title={user.username}>
-                    Sign Out
-                  </AccountBtn>
-                </>
-              ) : (
-                <AccountBtn onClick={() => openAuth("login")}>Account</AccountBtn>
-              )}
-              <ZenBtn onClick={() => setShowControls(false)} title="Zen clock mode">
-                ZEN
-              </ZenBtn>
-            </Footer>
+            <DeckPanel
+              isPlaying={isPlaying}
+              engineStatus={engineStatus}
+              activeCount={activeCount}
+              bpm={context.bpm}
+              stackCode={stackCode}
+              user={user}
+              onPlay={handlePlay}
+              onStop={handleStop}
+              onSave={openSave}
+              onLoad={openLoad}
+              onAccount={() => openAuth("login")}
+              onLogout={handleLogout}
+              onZen={() => setShowControls(false)}
+            />
 
             {engineError && <Notice>{engineError}</Notice>}
             <Notice>Audio starts after the first click. Changes take effect on Play.</Notice>
