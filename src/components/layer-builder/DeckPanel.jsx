@@ -1,16 +1,17 @@
 import React from "react";
-import styledImport, { css, keyframes } from "styled-components";
+import styledImport, { keyframes } from "styled-components";
 
 const styled = styledImport.default ?? styledImport;
 
 // ── Animations ───────────────────────────────────────────────────────────────
 
-const flowFwd = keyframes`to { stroke-dashoffset: -24; }`;
+// Pill perimeter ≈ 160 + π·22 + 160 + π·22 ≈ 458.23
+const TAPE_PATH = "M 60 13 H 220 A 22 22 0 0 1 220 57 H 60 A 22 22 0 0 1 60 13 Z";
+const TAPE_LEN = 458.23;
 
-const padPulse = keyframes`
-  0%, 100% { opacity: 0.85; }
-  50%       { opacity: 0.18; }
-`;
+const tapeFlow = keyframes`to { stroke-dashoffset: -${TAPE_LEN}; }`;
+
+const reelSpin = keyframes`to { transform: rotate(360deg); }`;
 
 // ── Deck shell ───────────────────────────────────────────────────────────────
 
@@ -44,7 +45,9 @@ const CircuitSection = styled.div`
   padding: 0.55rem 0.75rem 0.5rem;
   border-right: 1px solid #0f1820;
   background: #030508;
-  min-height: 72px;
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
 
   @media (max-width: 520px) {
     border-right: none;
@@ -62,25 +65,21 @@ const SectionLabel = styled.div`
   user-select: none;
 `;
 
-// Animated SVG trace — $playing controls animation-play-state
-const FlowPath = styled.path`
+// Worm-shaped tape segment that flows around the pill
+const TapeWorm = styled.path`
   fill: none;
   stroke-linecap: round;
-  stroke-dasharray: 5 19;
-  animation: ${flowFwd} ${({ $speed }) => $speed || "2.2s"} linear infinite;
+  /* dash + gap = TAPE_LEN so exactly one worm is visible at any time */
+  stroke-dasharray: 90 368.23;
+  animation: ${tapeFlow} 2.6s linear infinite;
   animation-play-state: ${({ $playing }) => ($playing ? "running" : "paused")};
 `;
 
-const StaticTrace = styled.path`
-  fill: none;
-`;
-
-// Pad circles at circuit junctions
-const Pad = styled.circle`
-  ${({ $playing, $delay }) =>
-    $playing
-      ? css`animation: ${padPulse} 1.8s ease-in-out infinite ${$delay || "0s"};`
-      : ""}
+// Reel group spins around its own center
+const SpinningReel = styled.g`
+  transform-origin: ${({ $cx, $cy }) => `${$cx}px ${$cy}px`};
+  animation: ${reelSpin} ${({ $duration }) => $duration || "3s"} linear infinite;
+  animation-play-state: ${({ $playing }) => ($playing ? "running" : "paused")};
 `;
 
 // ── LCD status panel ─────────────────────────────────────────────────────────
@@ -259,125 +258,89 @@ const ZenUtilBtn = styled(UtilBtn)`
   }
 `;
 
-// ── Circuit visualization ─────────────────────────────────────────────────────
+// ── Reel-to-reel visualization ────────────────────────────────────────────────
 
-const TRACE_ORANGE = "rgba(255,140,0,";
-const TRACE_TEAL = "rgba(0,212,180,";
+function Reel({ cx, cy, isPlaying, duration, rim, ring, spoke, hub }) {
+  const r = 22;
+  const innerR = 14;
+  const sx = r * 0.5;        // ≈ 11
+  const sy = r * 0.866025;   // ≈ 19.05
 
-function CircuitViz({ isPlaying: P }) {
-  const dim = P ? "0.42)" : "0.15)";
-  const flow = "0.82)";
+  return (
+    <SpinningReel
+      $cx={cx}
+      $cy={cy}
+      $playing={isPlaying}
+      $duration={duration}
+    >
+      {/* Outer rim */}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={rim} strokeWidth="1.4" />
+      {/* Inner decorative ring */}
+      <circle cx={cx} cy={cy} r={innerR} fill="none" stroke={ring} strokeWidth="0.8" />
+      {/* Three crossing spokes (= 6 visible spokes) */}
+      <line x1={cx - r} y1={cy} x2={cx + r} y2={cy}
+            stroke={spoke} strokeWidth="1" strokeLinecap="round" />
+      <line x1={cx - sx} y1={cy - sy} x2={cx + sx} y2={cy + sy}
+            stroke={spoke} strokeWidth="1" strokeLinecap="round" />
+      <line x1={cx + sx} y1={cy - sy} x2={cx - sx} y2={cy + sy}
+            stroke={spoke} strokeWidth="1" strokeLinecap="round" />
+      {/* Hub */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={4}
+        fill={hub}
+        style={{
+          filter: isPlaying ? "drop-shadow(0 0 3px rgba(255,140,0,0.7))" : "none",
+          transition: "filter 300ms ease, fill 300ms ease",
+        }}
+      />
+      {/* Hub recess (dark dot) */}
+      <circle cx={cx} cy={cy} r={1.4} fill="rgba(0,0,0,0.55)" />
+    </SpinningReel>
+  );
+}
 
-  // Pad positions: top row, bottom row, mid-row nodes
-  const pads = [
-    [12, 12], [76, 12], [148, 12], [212, 12], [268, 12],
-    [12, 42], [76, 42], [148, 42], [212, 42], [268, 42],
-    [76, 27], [148, 27],
-  ];
+function ReelToReel({ isPlaying: P }) {
+  const tapeStatic = P ? "rgba(255,140,0,0.18)" : "rgba(255,140,0,0.08)";
+  const tapeFlow   = P ? "rgba(255,140,0,0.9)"  : "rgba(255,140,0,0.25)";
+  const rim        = P ? "rgba(255,140,0,0.55)" : "rgba(255,140,0,0.22)";
+  const ring       = P ? "rgba(255,140,0,0.32)" : "rgba(255,140,0,0.13)";
+  const spoke      = P ? "rgba(255,140,0,0.5)"  : "rgba(255,140,0,0.18)";
+  const hub        = P ? "#ff8c00"              : "rgba(255,140,0,0.3)";
 
   return (
     <svg
-      viewBox="0 0 280 54"
+      viewBox="0 0 280 70"
       style={{ width: "100%", height: "100%", display: "block", overflow: "visible" }}
       aria-hidden="true"
     >
-      {/* ── Static background traces ── */}
-      {/* Outer rectangle */}
-      <StaticTrace d="M 12 12 H 268" stroke={TRACE_ORANGE + dim} strokeWidth="1" />
-      <StaticTrace d="M 268 12 V 42" stroke={TRACE_ORANGE + dim} strokeWidth="1" />
-      <StaticTrace d="M 268 42 H 12" stroke={TRACE_ORANGE + dim} strokeWidth="1" />
-      <StaticTrace d="M 12 42 V 12" stroke={TRACE_ORANGE + dim} strokeWidth="1" />
-      {/* Internal bridges */}
-      <StaticTrace d="M 76 12 V 42"  stroke={TRACE_ORANGE + dim} strokeWidth="1" />
-      <StaticTrace d="M 148 12 V 42" stroke={TRACE_ORANGE + dim} strokeWidth="1" />
-      <StaticTrace d="M 212 12 V 42" stroke={TRACE_ORANGE + dim} strokeWidth="1" />
-      {/* Mid cross */}
-      <StaticTrace d="M 76 27 H 148" stroke={TRACE_TEAL + (P ? "0.28)" : "0.1)")} strokeWidth="1" />
-
-      {/* ── Animated current flow ── */}
-      {/* Main outer loop — clockwise */}
-      <FlowPath
-        d="M 12 12 H 268 V 42 H 12 V 12"
-        stroke={TRACE_ORANGE + flow}
-        strokeWidth="1.5"
-        $playing={P}
-        $speed="2.6s"
-      />
-      {/* Bridge down at 76 */}
-      <FlowPath
-        d="M 76 12 V 42"
-        stroke={TRACE_ORANGE + flow}
-        strokeWidth="1.2"
-        $playing={P}
-        $speed="1.5s"
-        style={{ animationDelay: "-0.4s" }}
-      />
-      {/* Bridge up at 148 */}
-      <FlowPath
-        d="M 148 42 V 12"
-        stroke={TRACE_ORANGE + flow}
-        strokeWidth="1.2"
-        $playing={P}
-        $speed="1.9s"
-        style={{ animationDelay: "-0.9s" }}
-      />
-      {/* Bridge down at 212 */}
-      <FlowPath
-        d="M 212 12 V 42"
-        stroke={TRACE_ORANGE + flow}
-        strokeWidth="1.2"
-        $playing={P}
-        $speed="1.2s"
-        style={{ animationDelay: "-0.2s" }}
-      />
-      {/* Mid cross — teal accent */}
-      <FlowPath
-        d="M 76 27 H 148"
-        stroke={TRACE_TEAL + "0.75)"}
-        strokeWidth="1.2"
-        $playing={P}
-        $speed="1.7s"
-        style={{ animationDelay: "-0.7s" }}
+      {/* Static tape track (background) */}
+      <path
+        d={TAPE_PATH}
+        fill="none"
+        stroke={tapeStatic}
+        strokeWidth="2.6"
+        style={{ transition: "stroke 300ms ease" }}
       />
 
-      {/* ── Junction pads ── */}
-      {pads.map(([cx, cy], i) => (
-        <Pad
-          key={i}
-          cx={cx}
-          cy={cy}
-          r={2.8}
-          fill={TRACE_ORANGE + (P ? "0.65)" : "0.22)")}
-          style={{
-            filter: P ? "drop-shadow(0 0 3px rgba(255,140,0,0.6))" : "none",
-            transition: "filter 300ms ease, fill 300ms ease",
-          }}
-          $playing={P}
-          $delay={`${((i * 0.18) % 1.6).toFixed(2)}s`}
-        />
-      ))}
-
-      {/* ── Side LED indicators ── */}
-      <circle
-        cx={12}
-        cy={27}
-        r={4}
-        fill={P ? "#ff8c00" : "rgba(255,140,0,0.12)"}
+      {/* Animated tape worm */}
+      <TapeWorm
+        d={TAPE_PATH}
+        stroke={tapeFlow}
+        strokeWidth="2.6"
+        $playing={P}
         style={{
-          filter: P ? "drop-shadow(0 0 6px rgba(255,140,0,1))" : "none",
-          transition: "all 300ms ease",
+          filter: P ? "drop-shadow(0 0 4px rgba(255,140,0,0.55))" : "none",
+          transition: "filter 300ms ease, stroke 300ms ease",
         }}
       />
-      <circle
-        cx={268}
-        cy={27}
-        r={4}
-        fill={P ? "#00d4b4" : "rgba(0,212,180,0.12)"}
-        style={{
-          filter: P ? "drop-shadow(0 0 6px rgba(0,212,180,1))" : "none",
-          transition: "all 300ms ease",
-        }}
-      />
+
+      {/* Spinning reels */}
+      <Reel cx={60}  cy={35} isPlaying={P} duration="3.0s"
+            rim={rim} ring={ring} spoke={spoke} hub={hub} />
+      <Reel cx={220} cy={35} isPlaying={P} duration="3.4s"
+            rim={rim} ring={ring} spoke={spoke} hub={hub} />
     </svg>
   );
 }
@@ -405,8 +368,8 @@ export default function DeckPanel({
     <Deck>
       <DeckTop>
         <CircuitSection>
-          <SectionLabel>Signal Monitor</SectionLabel>
-          <CircuitViz isPlaying={isPlaying} />
+          <SectionLabel>Tape Transport</SectionLabel>
+          <ReelToReel isPlaying={isPlaying} />
         </CircuitSection>
 
         <LcdSection>
