@@ -193,6 +193,24 @@ export const Slider = styled.input`
   cursor: pointer;
 `;
 
+export const Select = styled.select`
+  flex: 1;
+  background: #050810;
+  color: #c8a96a;
+  border: 1px solid #1a2e3a;
+  border-radius: 3px;
+  padding: 0.3rem 0.5rem;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: rgba(255, 140, 0, 0.55);
+  }
+`;
+
 export const Divider = styled.div`
   height: 1px;
   background: linear-gradient(
@@ -229,6 +247,7 @@ export const LayerCard = styled.div`
     $on ? "0 0 14px rgba(255,140,0,0.1)" : "none"};
   transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
   overflow: hidden;
+  flex-shrink: 0;
 `;
 
 export const LayerHead = styled.div`

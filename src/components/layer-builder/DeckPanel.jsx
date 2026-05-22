@@ -71,7 +71,7 @@ const TapeWorm = styled.path`
   stroke-linecap: round;
   /* dash + gap = TAPE_LEN so exactly one worm is visible at any time */
   stroke-dasharray: 90 368.23;
-  animation: ${tapeFlow} 2.6s linear infinite;
+  animation: ${tapeFlow} ${({ $duration }) => $duration || "2.6s"} linear infinite;
   animation-play-state: ${({ $playing }) => ($playing ? "running" : "paused")};
 `;
 
@@ -301,7 +301,13 @@ function Reel({ cx, cy, isPlaying, duration, rim, ring, spoke, hub }) {
   );
 }
 
-function ReelToReel({ isPlaying: P }) {
+function ReelToReel({ isPlaying: P, bpm }) {
+  // Reference: 120 BPM matches the original hand-tuned speeds.
+  const scale = 120 / Math.max(bpm || 120, 1);
+  const tapeDur = `${(2.6 * scale).toFixed(2)}s`;
+  const reelADur = `${(3.0 * scale).toFixed(2)}s`;
+  const reelBDur = `${(3.4 * scale).toFixed(2)}s`;
+
   const tapeStatic = P ? "rgba(255,140,0,0.18)" : "rgba(255,140,0,0.08)";
   const tapeFlow   = P ? "rgba(255,140,0,0.9)"  : "rgba(255,140,0,0.25)";
   const rim        = P ? "rgba(255,140,0,0.55)" : "rgba(255,140,0,0.22)";
@@ -330,6 +336,7 @@ function ReelToReel({ isPlaying: P }) {
         stroke={tapeFlow}
         strokeWidth="2.6"
         $playing={P}
+        $duration={tapeDur}
         style={{
           filter: P ? "drop-shadow(0 0 4px rgba(255,140,0,0.55))" : "none",
           transition: "filter 300ms ease, stroke 300ms ease",
@@ -337,9 +344,9 @@ function ReelToReel({ isPlaying: P }) {
       />
 
       {/* Spinning reels */}
-      <Reel cx={60}  cy={35} isPlaying={P} duration="3.0s"
+      <Reel cx={60}  cy={35} isPlaying={P} duration={reelADur}
             rim={rim} ring={ring} spoke={spoke} hub={hub} />
-      <Reel cx={220} cy={35} isPlaying={P} duration="3.4s"
+      <Reel cx={220} cy={35} isPlaying={P} duration={reelBDur}
             rim={rim} ring={ring} spoke={spoke} hub={hub} />
     </svg>
   );
@@ -361,6 +368,8 @@ export default function DeckPanel({
   onAccount,
   onLogout,
   onZen,
+  onShare,
+  shareCopied,
 }) {
   const statusIcon = isPlaying ? "▶" : engineStatus === "STOPPED" ? "■" : "○";
 
@@ -369,7 +378,7 @@ export default function DeckPanel({
       <DeckTop>
         <CircuitSection>
           <SectionLabel>Tape Transport</SectionLabel>
-          <ReelToReel isPlaying={isPlaying} />
+          <ReelToReel isPlaying={isPlaying} bpm={bpm} />
         </CircuitSection>
 
         <LcdSection>
@@ -401,6 +410,12 @@ export default function DeckPanel({
           </>
         ) : (
           <UtilBtn onClick={onAccount}>ACCOUNT</UtilBtn>
+        )}
+
+        {onShare && (
+          <UtilBtn onClick={onShare} title="Copy shareable link">
+            {shareCopied ? "COPIED ✓" : "SHARE"}
+          </UtilBtn>
         )}
 
         <ZenUtilBtn onClick={onZen}>ZEN</ZenUtilBtn>

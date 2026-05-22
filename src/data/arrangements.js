@@ -1,10 +1,11 @@
+import { DEFAULT_KEY_ID, DEFAULT_PROGRESSION_ID } from "./progressions";
+
+// Key + progression drive bassLine / chordStr / arpLine at runtime via
+// src/lib/harmony.js. Only the source-of-truth fields live here.
 export const DEFAULT_CONTEXT = {
   bpm: 85,
-  // Cmaj7 — Am7 — Fmaj7 — G7   (I7 — vi7 — IV7 — V7 in C major)
-  bassLine: "c2 a1 f1 g1",
-  arpLine: "[c4 e4 g4 e4] [a3 c4 e4 c4] [f3 a3 c4 a3] [g3 b3 d4 b3]",
-  chordStr: "[c4,e4,g4,b4] [a3,c4,e4,g4] [f3,a3,c4,e4] [g3,b3,d4,f4]",
-  leadLine: "g4 ~ ~ e4 ~ c5 ~ ~",
+  keyId: DEFAULT_KEY_ID,
+  progressionId: DEFAULT_PROGRESSION_ID,
 };
 
 export const ARRANGEMENTS = [

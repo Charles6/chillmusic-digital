@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ARRANGEMENTS, DEFAULT_CONTEXT } from "../data/arrangements";
 import { BUILTIN_LAYERS } from "../data/layers";
+import { KEYS, PROGRESSIONS } from "../data/progressions";
+import { buildHarmony } from "../lib/harmony";
 import { compile } from "../lib/compiler";
+import { applyDecodedLayers, readHashState, shareUrl, writeHashState } from "../lib/share";
 import {
   ensureStrudelReady,
   hushStrudel,
@@ -35,6 +38,7 @@ import {
   ModalTitle,
   Notice,
   Panel,
+  Select,
   Shell,
   Slider,
   Title,
@@ -85,9 +89,30 @@ function sharedSuffixLength(a, b, prefixLength) {
   return index;
 }
 
+function hydrateFromHash() {
+  const decoded = typeof window !== "undefined" ? readHashState() : null;
+  const layers = decoded
+    ? applyDecodedLayers(cloneLayers(), decoded.l)
+    : cloneLayers();
+  const context = {
+    ...DEFAULT_CONTEXT,
+    ...(decoded
+      ? {
+          bpm: typeof decoded.b === "number" ? decoded.b : DEFAULT_CONTEXT.bpm,
+          keyId: typeof decoded.k === "string" ? decoded.k : DEFAULT_CONTEXT.keyId,
+          progressionId:
+            typeof decoded.p === "string" ? decoded.p : DEFAULT_CONTEXT.progressionId,
+        }
+      : {}),
+  };
+  return { layers, context, hadHash: Boolean(decoded) };
+}
+
 export default function LayerBuilder({ initialNewsItems = [] }) {
-  const [layers, setLayers] = useState(cloneLayers);
-  const [context, setContext] = useState({ ...DEFAULT_CONTEXT });
+  const initial = useMemo(hydrateFromHash, []);
+  const [layers, setLayers] = useState(initial.layers);
+  const [context, setContext] = useState(initial.context);
+  const [shareCopied, setShareCopied] = useState(false);
   const [activeArrangementId, setActiveArrangementId] = useState(null);
   const [soloId, setSoloId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -154,10 +179,33 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     setStrudelVolume(volume);
   }, [volume]);
 
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      writeHashState({ context, layers });
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [context, layers]);
+
+  function handleShare() {
+    const url = shareUrl({ context, layers });
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 1400);
+      });
+    } else {
+      window.prompt("Copy share link:", url);
+    }
+  }
+
   const sortedLayers = useMemo(() => sortByOrder(layers), [layers]);
+  const derivedContext = useMemo(
+    () => ({ ...context, ...buildHarmony(context.keyId, context.progressionId) }),
+    [context]
+  );
   const { display: generatedCode, stack: stackCode } = useMemo(
-    () => compile(layers, context, { soloId }),
-    [layers, context, soloId]
+    () => compile(layers, derivedContext, { soloId }),
+    [layers, derivedContext, soloId]
   );
   const activeLayerIds = useMemo(
     () =>
@@ -800,6 +848,38 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
               <DisplayValue>{context.bpm}</DisplayValue>
             </DisplayBar>
 
+            <DisplayBar style={{ marginTop: "0.4rem" }}>
+              <Label>Key</Label>
+              <Select
+                value={context.keyId}
+                onChange={(event) => {
+                  const keyId = event.target.value;
+                  setContext((current) => ({ ...current, keyId }));
+                  resetArrangementSelection();
+                }}
+              >
+                {KEYS.map((k) => (
+                  <option key={k.id} value={k.id}>{k.name}</option>
+                ))}
+              </Select>
+            </DisplayBar>
+
+            <DisplayBar style={{ marginTop: "0.4rem" }}>
+              <Label>Prog</Label>
+              <Select
+                value={context.progressionId}
+                onChange={(event) => {
+                  const progressionId = event.target.value;
+                  setContext((current) => ({ ...current, progressionId }));
+                  resetArrangementSelection();
+                }}
+              >
+                {PROGRESSIONS.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
+            </DisplayBar>
+
             <Divider />
 
             <LayerList>
@@ -856,6 +936,8 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
               onAccount={() => openAuth("login")}
               onLogout={handleLogout}
               onZen={() => setShowControls(false)}
+              onShare={handleShare}
+              shareCopied={shareCopied}
             />
 
             {engineError && <Notice>{engineError}</Notice>}
