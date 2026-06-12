@@ -4,6 +4,7 @@ import { DEFAULT_KEY_ID, DEFAULT_PROGRESSION_ID } from "./progressions";
 // src/lib/harmony.js. Only the source-of-truth fields live here.
 export const DEFAULT_CONTEXT = {
   bpm: 85,
+  swing: 0,
   keyId: DEFAULT_KEY_ID,
   progressionId: DEFAULT_PROGRESSION_ID,
 };
@@ -18,8 +19,14 @@ export const ARRANGEMENTS = [
   {
     id: "ambient-wash",
     name: "Ambient Wash",
-    description: "No drums. Slow chords with melody and texture floating overhead.",
-    enabledLayers: ["chords", "melody", "texture"],
+    description: "No drums. Drone and slow chords with melody and texture floating overhead.",
+    enabledLayers: ["drone", "chords", "melody", "texture"],
+  },
+  {
+    id: "night-drive",
+    name: "Night Drive",
+    description: "Pulsing arp over sparse drums and a deep drone. Momentum without busyness.",
+    enabledLayers: ["kick", "hats", "drone", "chords", "arp"],
   },
   {
     id: "full-vibe",
@@ -31,8 +38,10 @@ export const ARRANGEMENTS = [
       "hats",
       "perc",
       "bass",
+      "drone",
       "chords",
       "melody",
+      "arp",
       "texture",
     ],
   },

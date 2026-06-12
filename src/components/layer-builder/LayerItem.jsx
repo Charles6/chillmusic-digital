@@ -12,6 +12,7 @@ import {
   ParamGrid,
   ParamLabel,
   ParamRow,
+  ParamSelect,
   ParamSlider,
   ParamText,
   ParamVal,
@@ -76,6 +77,23 @@ export default function LayerItem({
                     />
                     <ParamVal>{layer.params[def.key]}</ParamVal>
                   </>
+                ) : def.type === "select" ? (
+                  <ParamSelect
+                    id={`${layer.id}-${def.key}`}
+                    value={layer.params[def.key]}
+                    onChange={(event) => onParamChange(def.key, event.target.value)}
+                  >
+                    {!def.options.some((o) => o.value === layer.params[def.key]) && (
+                      <option value={layer.params[def.key]}>
+                        {layer.params[def.key]} (custom)
+                      </option>
+                    )}
+                    {def.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </ParamSelect>
                 ) : (
                   <ParamText
                     id={`${layer.id}-${def.key}`}

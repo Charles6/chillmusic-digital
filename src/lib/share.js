@@ -1,7 +1,7 @@
 // URL-fragment serialization for shareable sketch state.
 //
 // Encoded payload (kept short — it lives in the URL):
-//   { v: 1, b: bpm, k: keyId, p: progressionId,
+//   { v: 1, b: bpm, w: swing, k: keyId, p: progressionId,
 //     l: [{ id, e: enabled, m: muted, o: order, p: params }, ...] }
 
 const VERSION = 1;
@@ -27,6 +27,7 @@ export function encodeState({ context, layers }) {
   const payload = {
     v: VERSION,
     b: context.bpm,
+    w: context.swing,
     k: context.keyId,
     p: context.progressionId,
     l: layers.map((layer) => ({
