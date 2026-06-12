@@ -10,28 +10,33 @@ The main interface is a **Layer Builder** — a set of independent music layers 
 
 ### Layers
 
-Eight layers cover the building blocks of a chill/lofi/ambient mix:
+Ten layers cover the building blocks of a chill/lofi/ambient mix:
 
 | Layer | Category | What it does |
 |---|---|---|
-| Kick | Drums | Sparse warm kick (Roland TR-707, 4-bar feel) |
-| Snare / Rim | Drums | Backbeat on 2 & 4 |
-| Hats | Drums | Crushed hi-hats with random drops for organic feel |
-| Percussion | Drums | Euclidean shaker pattern — adds swing without clutter |
-| Bass | Bass | Filtered sawtooth root bass, soft attack |
-| Chords | Harmony | Slow chord pad with long reverb tail |
-| Melody | Melody | Sparse arpeggiated line with dotted-eighth delay |
-| Texture | FX | Vinyl crackle noise — constant warmth underneath |
+| Kick | Drums | Warm kick with pattern presets and an every-8-bar fill (breathe / push) |
+| Snare / Rim | Drums | Backbeat on 2 & 4 with laid-back timing and ghost/roll fills |
+| Hats | Drums | Crushed hi-hats with groove accents, shimmer, and slow stereo drift |
+| Percussion | Drums | Euclidean shaker — rotation and pitch controls |
+| Bass | Bass | Filtered sawtooth with style presets (roots / root+fifth / octave) and a 32-bar filter sweep |
+| Drone | Bass | Tonic pedal with a slow gain swell — root, root+fifth, or sub-octave voicings |
+| Chords | Harmony | Voice-led chord pad (each chord glides from the last) with a 48-bar filter sweep |
+| Melody | Melody | Diatonic line generated from the current key/chords — five style presets, octave echo |
+| Arp | Melody | Steady arpeggiator over the chord tones — direction and rate controls |
+| Texture | FX | Atmosphere bed: vinyl crackle, noise washes, or birds |
 
-All layers are tuned to **85 BPM, C major** (Cmaj7 → Am7 → Fmaj7 → G7). Layers route to four independent FX buses via `.orbit()` so reverb and delay tails don't bleed into each other.
+Defaults aim for **85 BPM, C major** (Cmaj7 → Am7 → Fmaj7 → G7). A global **swing** control sits next to BPM and applies to all drum layers. Layers route to four independent FX buses via `.orbit()` so reverb and delay tails don't bleed into each other.
+
+Harmony is voice-led: chord voicings pick the inversion that moves least from the previous chord, and melodic layers generate diatonically from the progression's mode via Strudel's `.scale()`. Layers embed slow evolution (`.lastOf(8, …)` fills, `sine.slow(n)` LFO sweeps, `.sometimesBy(…)` ornaments) so long sessions drift instead of looping identically.
 
 ### Arrangements
 
-Three presets load a curated subset of layers:
+Four presets load a curated subset of layers:
 
 - **Lofi Beats** — kick, snare, hats, bass, chords
-- **Ambient Wash** — chords, melody, texture (no drums)
-- **Full Vibe** — all eight layers
+- **Ambient Wash** — drone, chords, melody, texture (no drums)
+- **Night Drive** — kick, hats, drone, chords, arp
+- **Full Vibe** — all ten layers
 
 ### Zen mode
 

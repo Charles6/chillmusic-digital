@@ -99,6 +99,7 @@ function hydrateFromHash() {
     ...(decoded
       ? {
           bpm: typeof decoded.b === "number" ? decoded.b : DEFAULT_CONTEXT.bpm,
+          swing: typeof decoded.w === "number" ? decoded.w : DEFAULT_CONTEXT.swing,
           keyId: typeof decoded.k === "string" ? decoded.k : DEFAULT_CONTEXT.keyId,
           progressionId:
             typeof decoded.p === "string" ? decoded.p : DEFAULT_CONTEXT.progressionId,
@@ -846,6 +847,24 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
                 }}
               />
               <DisplayValue>{context.bpm}</DisplayValue>
+            </DisplayBar>
+
+            <DisplayBar style={{ marginTop: "0.4rem" }}>
+              <Label>Swing</Label>
+              <Slider
+                type="range"
+                min={0}
+                max={0.45}
+                step={0.03}
+                value={context.swing}
+                onChange={(event) => {
+                  setContext((current) => ({ ...current, swing: Number(event.target.value) }));
+                  resetArrangementSelection();
+                }}
+              />
+              <DisplayValue style={{ fontSize: "0.85rem" }}>
+                {Math.round((context.swing / 0.45) * 100)}%
+              </DisplayValue>
             </DisplayBar>
 
             <DisplayBar style={{ marginTop: "0.4rem" }}>

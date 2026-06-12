@@ -3,6 +3,8 @@
 //   root    = semitones above the key tonic (0=I, 2=ii, 4=iii, 5=IV, 7=V,
 //             9=vi, 11=vii)
 //   quality = one of the QUALITY_INTERVALS keys in src/lib/harmony.js
+//
+// `mode` tells melodic layers which scale to draw from ("major" | "minor").
 
 export const KEYS = [
   { id: "C",  name: "C major",  tonic: 0 },
@@ -27,6 +29,7 @@ export const PROGRESSIONS = [
   {
     id: "Imaj7-vi7-IVmaj7-V7",
     name: "Imaj7 · vi7 · IVmaj7 · V7  (classic lofi)",
+    mode: "major",
     chords: [
       { root: 0, quality: "maj7" },
       { root: 9, quality: "m7" },
@@ -35,8 +38,20 @@ export const PROGRESSIONS = [
     ],
   },
   {
+    id: "Imaj9-iii7-vi9-IVmaj9",
+    name: "Imaj9 · iii7 · vi9 · IVmaj9  (dreamy neo-soul)",
+    mode: "major",
+    chords: [
+      { root: 0, quality: "maj9" },
+      { root: 4, quality: "m7" },
+      { root: 9, quality: "m9" },
+      { root: 5, quality: "maj9" },
+    ],
+  },
+  {
     id: "ii7-V7-Imaj7",
     name: "ii7 · V7 · Imaj7 · Imaj7  (jazz turnaround)",
+    mode: "major",
     chords: [
       { root: 2, quality: "m7" },
       { root: 7, quality: "7" },
@@ -47,6 +62,7 @@ export const PROGRESSIONS = [
   {
     id: "I-V-vi-IV",
     name: "I · V · vi · IV  (pop / axis)",
+    mode: "major",
     chords: [
       { root: 0, quality: "maj" },
       { root: 7, quality: "maj" },
@@ -57,6 +73,7 @@ export const PROGRESSIONS = [
   {
     id: "vi-IV-I-V",
     name: "vi · IV · I · V  (sentimental)",
+    mode: "major",
     chords: [
       { root: 9, quality: "m" },
       { root: 5, quality: "maj" },
@@ -67,6 +84,7 @@ export const PROGRESSIONS = [
   {
     id: "im7-iv7-VImaj7-V7",
     name: "i7 · iv7 · VImaj7 · V7  (minor lofi)",
+    mode: "minor",
     chords: [
       { root: 0, quality: "m7" },
       { root: 5, quality: "m7" },
@@ -75,11 +93,32 @@ export const PROGRESSIONS = [
     ],
   },
   {
+    id: "im9-VImaj7-IIImaj7-VII7",
+    name: "i9 · VImaj7 · IIImaj7 · VII7  (cinematic minor)",
+    mode: "minor",
+    chords: [
+      { root: 0, quality: "m9" },
+      { root: 8, quality: "maj7" },
+      { root: 3, quality: "maj7" },
+      { root: 10, quality: "7" },
+    ],
+  },
+  {
     id: "Imaj7-IVmaj7",
     name: "Imaj7 · IVmaj7  (slow drift)",
+    mode: "major",
     chords: [
       { root: 0, quality: "maj7" },
       { root: 5, quality: "maj7" },
+    ],
+  },
+  {
+    id: "Isus2-IVadd9",
+    name: "Isus2 · IVadd9  (open ambient)",
+    mode: "major",
+    chords: [
+      { root: 0, quality: "sus2" },
+      { root: 5, quality: "add9" },
     ],
   },
 ];

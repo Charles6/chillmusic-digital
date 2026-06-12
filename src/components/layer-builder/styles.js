@@ -423,6 +423,29 @@ export const ParamText = styled.input`
   }
 `;
 
+export const ParamSelect = styled.select`
+  grid-column: 2 / -1;
+  background: #020407;
+  border: 1px solid #1a2a32;
+  border-radius: 2px;
+  padding: 0.22rem 0.5rem;
+  color: #ff8c00;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: rgba(255, 140, 0, 0.5);
+    box-shadow: 0 0 6px rgba(255, 140, 0, 0.15);
+  }
+
+  option {
+    background: #020407;
+    color: #ff8c00;
+  }
+`;
+
 export const Footer = styled.div`
   margin-top: 0.75rem;
   display: flex;
