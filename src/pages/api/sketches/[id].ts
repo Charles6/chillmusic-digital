@@ -1,11 +1,13 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { parseCookieToken, getSession } from "../../../lib/auth";
+import { parseStoredSettings, serializeSettings } from "../../../lib/sketchPersistence";
 
 interface SketchRow {
   id: string;
   name: string;
   code: string;
+  settings: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -27,7 +29,7 @@ export const GET: APIRoute = async ({ params, request }) => {
   }
 
   const row = await env.DB.prepare(
-    "SELECT id, name, code, created_at, updated_at FROM sketches WHERE id = ? AND user_id = ?",
+    "SELECT id, name, code, settings, created_at, updated_at FROM sketches WHERE id = ? AND user_id = ?",
   )
     .bind(id, session.userId)
     .first<SketchRow>();
@@ -42,6 +44,7 @@ export const GET: APIRoute = async ({ params, request }) => {
         id: row.id,
         name: row.name,
         code: row.code,
+        settings: parseStoredSettings(row.settings),
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       },
@@ -66,7 +69,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
     return json({ error: "Missing sketch id" }, 400);
   }
 
-  let body: { name?: string; code?: string };
+  let body: { name?: string; code?: string; settings?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -74,10 +77,10 @@ export const PUT: APIRoute = async ({ params, request }) => {
   }
 
   const existing = await env.DB.prepare(
-    "SELECT id, name, code, created_at FROM sketches WHERE id = ? AND user_id = ?",
+    "SELECT id, name, code, settings, created_at, updated_at FROM sketches WHERE id = ? AND user_id = ?",
   )
     .bind(id, session.userId)
-    .first<{ id: string; name: string; code: string; created_at: number }>();
+    .first<SketchRow>();
 
   if (!existing) {
     return json({ error: "Sketch not found" }, 404);
@@ -97,11 +100,20 @@ export const PUT: APIRoute = async ({ params, request }) => {
   }
 
   const now = Date.now();
+  let settings = existing.settings;
+  if (body.settings !== undefined) {
+    try {
+      settings = serializeSettings(body.settings);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid settings";
+      return json({ error: message }, message.includes("large") ? 413 : 400);
+    }
+  }
 
   await env.DB.prepare(
-    "UPDATE sketches SET name = ?, code = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    "UPDATE sketches SET name = ?, code = ?, settings = ?, updated_at = ? WHERE id = ? AND user_id = ?",
   )
-    .bind(name, code, now, id, session.userId)
+    .bind(name, code, settings, now, id, session.userId)
     .run();
 
   return json(
@@ -112,6 +124,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
         code,
         createdAt: existing.created_at,
         updatedAt: now,
+        settings: parseStoredSettings(settings),
       },
     },
     200,

@@ -6,6 +6,10 @@ import { buildHarmony } from "../lib/harmony";
 import { compile } from "../lib/compiler";
 import { applyDecodedLayers, readHashState, shareUrl, writeHashState } from "../lib/share";
 import {
+  createSketchSettings,
+  hydrateSketchSettings,
+} from "../lib/sketchSettings";
+import {
   ensureStrudelReady,
   hushStrudel,
   playCode,
@@ -510,7 +514,17 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     setSketchLoading(true);
     setSketchError("");
 
-    const payload = { name, code: generatedCode };
+    const payload = {
+      name,
+      code: generatedCode,
+      settings: createSketchSettings({
+        context,
+        layers,
+        volume,
+        soloId,
+        activeArrangementId,
+      }),
+    };
 
     try {
       const isUpdate = Boolean(currentSketchId);
@@ -570,6 +584,29 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     } catch {
       setSketchError("Copy failed");
     }
+  }
+
+  function handleLoadSelectedSketch() {
+    if (!selectedSketch?.settings) return;
+    const restored = hydrateSketchSettings(selectedSketch.settings);
+    if (!restored) {
+      setSketchError("This sketch does not contain compatible Layer Builder settings");
+      return;
+    }
+
+    hushStrudel();
+    setIsPlaying(false);
+    setEngineStatus("STOPPED");
+    setContext(restored.context);
+    setLayers(restored.layers);
+    setVolume(restored.volume);
+    setSoloId(restored.soloId);
+    setActiveArrangementId(restored.activeArrangementId);
+    setExpandedId(null);
+    setCurrentSketchId(selectedSketch.id);
+    setSketchName(selectedSketch.name);
+    setSketchesModal(null);
+    setSelectedSketch(null);
   }
 
   async function handleDeleteSketch(id) {
@@ -765,6 +802,11 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
 
             {selectedSketch && (
               <>
+                {!selectedSketch.settings && (
+                  <ModalHint>
+                    This older sketch contains code only. You can still copy it.
+                  </ModalHint>
+                )}
                 <pre
                   style={{
                     margin: 0,
@@ -792,9 +834,14 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
                   <ModalCancelBtn type="button" onClick={() => setSelectedSketch(null)}>
                     Back
                   </ModalCancelBtn>
-                  <ModalSubmitBtn type="button" onClick={handleCopySelectedSketch}>
+                  <ModalCancelBtn type="button" onClick={handleCopySelectedSketch}>
                     Copy
-                  </ModalSubmitBtn>
+                  </ModalCancelBtn>
+                  {selectedSketch.settings && (
+                    <ModalSubmitBtn type="button" onClick={handleLoadSelectedSketch}>
+                      Load Settings
+                    </ModalSubmitBtn>
+                  )}
                 </>
               ) : (
                 <ModalCancelBtn type="button" onClick={() => setSketchesModal(null)}>

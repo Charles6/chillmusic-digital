@@ -1,11 +1,13 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { parseCookieToken, getSession } from "../../../lib/auth";
+import { parseStoredSettings, serializeSettings } from "../../../lib/sketchPersistence";
 
 interface SketchRow {
   id: string;
   name: string;
   code: string;
+  settings: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -15,6 +17,7 @@ function serialize(row: SketchRow) {
     id: row.id,
     name: row.name,
     code: row.code,
+    settings: parseStoredSettings(row.settings),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -32,7 +35,7 @@ export const GET: APIRoute = async ({ request }) => {
   }
 
   const result = await env.DB.prepare(
-    "SELECT id, name, code, created_at, updated_at FROM sketches WHERE user_id = ? ORDER BY updated_at DESC",
+    "SELECT id, name, code, settings, created_at, updated_at FROM sketches WHERE user_id = ? ORDER BY updated_at DESC",
   )
     .bind(session.userId)
     .all<SketchRow>();
@@ -51,7 +54,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Not authenticated" }, 401);
   }
 
-  let body: { name?: string; code?: string };
+  let body: { name?: string; code?: string; settings?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -70,19 +73,33 @@ export const POST: APIRoute = async ({ request }) => {
   if (code.length > 100_000) {
     return json({ error: "Code is too large" }, 413);
   }
+  let settings: string | null;
+  try {
+    settings = serializeSettings(body.settings);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid settings";
+    return json({ error: message }, message.includes("large") ? 413 : 400);
+  }
 
   const id = crypto.randomUUID();
   const now = Date.now();
 
   await env.DB.prepare(
-    "INSERT INTO sketches (id, user_id, name, code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+    "INSERT INTO sketches (id, user_id, name, code, settings, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
   )
-    .bind(id, session.userId, name, code, now, now)
+    .bind(id, session.userId, name, code, settings, now, now)
     .run();
 
   return json(
     {
-      sketch: { id, name, code, createdAt: now, updatedAt: now },
+      sketch: {
+        id,
+        name,
+        code,
+        settings: parseStoredSettings(settings),
+        createdAt: now,
+        updatedAt: now,
+      },
     },
     201,
   );

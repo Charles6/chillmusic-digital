@@ -53,7 +53,7 @@ The Layer Builder always displays the Strudel code it compiled from the current 
 
 ## Accounts and saved sketches
 
-Users register with a **username and password** — no email required. Once signed in, named sketches (Strudel code text) can be saved and browsed later.
+Users register with a **username and password** — no email required. Once signed in, named sketches can be saved and loaded later.
 
 ### How auth works
 
@@ -67,10 +67,10 @@ Two tables in Cloudflare D1:
 
 ```
 users    — id, username (unique), password_hash, created_at
-sketches — id, user_id (→ users), name, code, created_at, updated_at
+sketches — id, user_id (→ users), name, code, settings, created_at, updated_at
 ```
 
-Sketches store only the generated Strudel code string — not layer state. Use the Load modal to copy saved code back into your own Strudel setup.
+Sketches store the generated Strudel code plus a versioned Layer Builder settings payload. Loading a sketch restores its tempo, harmony, layer order and parameters, mute/solo state, arrangement, and volume. Existing code-only sketches remain available to copy.
 
 ### API routes
 
@@ -81,7 +81,7 @@ Sketches store only the generated Strudel code string — not layer state. Use t
 | POST | `/api/auth/logout` | Clear session cookie and delete token from KV |
 | GET | `/api/auth/me` | Return `{username, userId}` for the current session |
 | GET | `/api/sketches` | List all sketches for the signed-in user |
-| POST | `/api/sketches` | Save a new sketch `{name, code}` |
+| POST | `/api/sketches` | Save a new sketch `{name, code, settings}` |
 | GET | `/api/sketches/:id` | Fetch a single sketch |
 | PUT | `/api/sketches/:id` | Rename or update code |
 | DELETE | `/api/sketches/:id` | Delete a sketch |
@@ -145,6 +145,13 @@ npx wrangler d1 execute chillmusic --remote --file=schema.sql
 ```
 
 > **Warning:** `schema.sql` drops and recreates all tables. Running it against the remote database will wipe existing accounts and sketches.
+
+For an existing database, preserve its data by applying the migration instead:
+
+```bash
+npx wrangler d1 migrations apply chillmusic --local
+npx wrangler d1 migrations apply chillmusic --remote
+```
 
 **5. Start the dev server**
 
