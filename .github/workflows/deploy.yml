@@ -57,7 +57,8 @@ jobs:
           printf '%s\n' "$deploy_output"
           if [ "$deploy_status" -ne 0 ]; then
             printf '### Worker deployment failure\n\n```text\n%s\n```\n' "$deploy_output" >> "$GITHUB_STEP_SUMMARY"
-            annotation="${deploy_output//'%'/'%25'}"
+            annotation_source="${deploy_output: -2000}"
+            annotation="${annotation_source//'%'/'%25'}"
             annotation="${annotation//$'\r'/'%0D'}"
             annotation="${annotation//$'\n'/'%0A'}"
             printf '::error title=Worker deployment failure::%s\n' "$annotation"
