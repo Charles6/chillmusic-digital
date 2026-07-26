@@ -230,9 +230,10 @@ The production endpoints are:
 | Secret | Where to get it |
 |---|---|
 | `CLOUDFLARE_API_TOKEN` | dash.cloudflare.com → Profile → API Tokens → Create Token using the **"Edit Cloudflare Workers"** template |
-| `CLOUDFLARE_ACCOUNT_ID` | Right sidebar of the Cloudflare dashboard homepage |
 
 The API token must have **Workers Scripts: Edit**, **Workers KV Storage: Edit**, and **D1: Edit** permissions. Custom-domain management also requires the corresponding Workers Routes/zone access. The Pages "Edit" template is not sufficient.
+
+The deployment account is recorded in `wrangler.toml`; it is an identifier rather than a secret. GitHub Actions only needs `CLOUDFLARE_API_TOKEN`.
 
 ### Manual deploy
 

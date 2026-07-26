@@ -1,4 +1,5 @@
 name = "chillmusic-digital"
+account_id = "4abdbcdd3620fc7fb88b5ead64b40736"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat_v2"]
 
