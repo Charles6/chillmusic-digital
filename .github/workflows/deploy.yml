@@ -40,6 +40,10 @@ jobs:
           printf '%s\n' "$migration_output"
           if [ "$migration_status" -ne 0 ]; then
             printf '### D1 migration failure\n\n```text\n%s\n```\n' "$migration_output" >> "$GITHUB_STEP_SUMMARY"
+            annotation="${migration_output//'%'/'%25'}"
+            annotation="${annotation//$'\r'/'%0D'}"
+            annotation="${annotation//$'\n'/'%0A'}"
+            printf '::error title=D1 migration failure::%s\n' "$annotation"
             exit "$migration_status"
           fi
 
