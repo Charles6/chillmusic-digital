@@ -165,24 +165,17 @@ binding = "CACHE"
 id = "<paste here>"
 ```
 
-**4. Apply the schema**
+**4. Apply the database migrations**
 
 ```bash
 # Local (offline dev — no Cloudflare account needed after this):
-npx wrangler d1 execute chillmusic --local --file=schema.sql
-
-# Remote (applies to the live D1 database):
-npx wrangler d1 execute chillmusic --remote --file=schema.sql
-```
-
-> **Warning:** `schema.sql` drops and recreates all tables. Running it against the remote database will wipe existing accounts and sketches.
-
-For an existing database, preserve its data by applying the migration instead:
-
-```bash
 npx wrangler d1 migrations apply chillmusic --local
+
+# Remote (initializes a new database or upgrades an existing one):
 npx wrangler d1 migrations apply chillmusic --remote
 ```
+
+The baseline migration creates missing tables without replacing existing data. Use `schema.sql` only for an intentional full reset: it drops and recreates all tables and will erase existing accounts and sketches.
 
 **5. Start the dev server**
 
