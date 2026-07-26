@@ -1,6 +1,15 @@
 # Chill Music Digital
 
-A browser-based generative music composer built with Astro, React, and Strudel. Toggle layers, tweak parameters, and let it run in the background while a zen mode shows the time, local weather, and rotating world headlines.
+A browser-based generative trance composer built with Astro, React, and Strudel. Build arrangements from live musical layers, sequence complete sections, shape the mix, and let it run while Zen mode shows the time, local weather, and rotating world headlines.
+
+## Latest update
+
+- Expanded the composer to 13 phrase-aware trance layers and six section presets.
+- Added an editable song timeline, quantized preset launches, and a non-destructive Energy macro.
+- Added per-layer gain and pan controls, a master headroom estimate, and complete save/share persistence for the performance state.
+- Improved mix stability with gentler ducking onset, bounded supersaw unison, and safer Anthem Peak voicing.
+- Reworked the interface for desktop, tablet, and mobile with larger touch targets and horizontally scrollable timeline sections.
+- Added a reduced-motion-aware Zen transition: the two main panels slide apart like doors and return before the Zen screen unmounts.
 
 ---
 
@@ -10,40 +19,62 @@ The main interface is a **Layer Builder** — a set of independent music layers 
 
 ### Layers
 
-Ten layers cover the building blocks of a chill/lofi/ambient mix:
+Thirteen layers cover the rhythmic, harmonic, melodic, and structural roles of trance. One Strudel cycle equals one 4/4 bar, so fills and filter movements align to real 4-, 8-, and 16-bar phrases.
 
 | Layer | Category | What it does |
 |---|---|---|
-| Kick | Drums | Warm kick with pattern presets and an every-8-bar fill (breathe / push) |
-| Snare / Rim | Drums | Backbeat on 2 & 4 with laid-back timing and ghost/roll fills |
-| Hats | Drums | Crushed hi-hats with groove accents, shimmer, and slow stereo drift |
-| Percussion | Drums | Euclidean shaker — rotation and pitch controls |
-| Bass | Bass | Filtered sawtooth with style presets (roots / root+fifth / octave) and a 32-bar filter sweep |
-| Drone | Bass | Tonic pedal with a slow gain swell — root, root+fifth, or sub-octave voicings |
-| Chords | Harmony | Voice-led chord pad (each chord glides from the last) with a 48-bar filter sweep |
-| Melody | Melody | Diatonic line generated from the current key/chords — five style presets, octave echo |
-| Arp | Melody | Steady arpeggiator over the chord tones — direction and rate controls |
-| Texture | FX | Atmosphere bed: vinyl crackle, noise washes, or birds |
+| Four-on-the-Floor Kick | Drums | Quarter-note anchor plus sidechain-style ducking for the musical buses |
+| Clap / Snare | Drums | Beats 2 and 4 with deterministic phrase-ending fills |
+| Closed Hats | Drums | Accented 8th/16th-note propulsion with restrained humanization |
+| Open Hat / Ride | Drums | Independent offbeat lift or peak-energy ride control |
+| Percussion / Fill | Drums | Light 16-step Euclidean support and bar-8 punctuation |
+| Rolling Bass Engine | Bass | Linked offbeat sub and short rolling mid-bass between kick hits |
+| Wide Trance Pad | Harmony | One voice-led chord per bar with 16-bar filter movement |
+| Gated Chord Pluck | Harmony | Rhythmic chord stabs in straight, offbeat, or syncopated gates |
+| Sixteenth Arpeggio | Melody | Chord-tone motion with deterministic four-bar turns |
+| Lead Hook | Melody | An eight-bar A/A′/B/A″ motif with controlled repetition and climax |
+| Countermelody | Melody | Sparse answers placed in the lead hook's rests |
+| Transitions | FX | Phrase-length noise rises and section-start crashes |
+| Atmosphere | FX | High-passed stereo air without rhythmic clutter |
 
-Defaults aim for **85 BPM, C major** (Cmaj7 → Am7 → Fmaj7 → G7). A global **swing** control sits next to BPM and applies to all drum layers. Layers route to four independent FX buses via `.orbit()` so reverb and delay tails don't bleed into each other.
+Defaults aim for **138 BPM, A minor** using `i → VI → III → VII` (Am → F → C → G). The kick and bass form one composite rhythmic engine: kick notes occupy the quarter-note downbeats while bass fills the intervening 16ths. The kick ducks bass, harmony, and melody orbits to keep the low end clear.
 
-Harmony is voice-led: chord voicings pick the inversion that moves least from the previous chord, and melodic layers generate diatonically from the progression's mode via Strudel's `.scale()`. Layers embed slow evolution (`.lastOf(8, …)` fills, `sine.slow(n)` LFO sweeps, `.sometimesBy(…)` ornaments) so long sessions drift instead of looping identically.
+Harmony remains voice-led, while lead hooks now use chord tones on strong positions and stepwise scale tones between them. Random deletion is confined mainly to quiet percussion; important musical layers evolve through deterministic 4-, 8-, and 16-bar changes.
 
 ### Arrangements
 
-Four presets load a curated subset of layers:
+Six section-aware presets load a curated layer set, tempo, progression, and tuned parameter mix:
 
-- **Lofi Beats** — kick, snare, hats, bass, chords
-- **Ambient Wash** — drone, chords, melody, texture (no drums)
-- **Night Drive** — kick, hats, drone, chords, arp
-- **Full Vibe** — all ten layers
+- **DJ Intro** — mix-friendly kick, offbeat bass, sparse hats, atmosphere, and a 16-bar rise
+- **Progressive Drive** — balanced rolling groove, pad, gated pluck, and arp without the lead
+- **Airy Breakdown** — spacious pad, half-speed arp, call-and-response lead, and countermelody
+- **Tension Build** — rolls, dense percussion, opening filters, and a strong riser before the drop
+- **Anthem Peak** — the controlled full stack with hook, counterline, octave bass, pad, pluck, and arp
+- **Afterglow** — resolved outro with gentler offbeat low end and fewer foreground events
+
+### Performance workflow
+
+- The **Song Timeline** chains editable preset sections with 4-, 8-, 16-, 32-, or 64-bar lengths and advances them automatically.
+- Manual preset launches can happen immediately or be queued to the next 1-, 4-, or 8-bar boundary.
+- The **Energy** macro non-destructively coordinates drum intensity, filter brightness, harmonic air, melodic presence, and transition strength. At 50% it leaves the saved layer parameters unchanged.
+- Every expanded layer has independent **channel gain and stereo pan** controls after its sound-generation chain.
+- The master **Headroom** meter estimates combined layer load after channel and master gain, warning when the mix is likely to run hot.
+
+Timeline, quantization, energy, and mixer values are included in account saves and share links. Older saves and links load with neutral performance defaults.
 
 ### Zen mode
 
 A full-screen overlay that shows:
+
 - A large digital clock
 - Local weather (fetched via browser geolocation → `/api/weather`)
 - Rotating headlines from Reuters, BBC, and AP (fetched from `/api/news`, cached in KV)
+
+Entering Zen mode slides the two composer panels to opposite sides like a pair of doors. Clicking the Zen screen brings both panels back before the overlay closes. The transition respects the operating system's reduced-motion preference.
+
+### Responsive interface
+
+The two-panel desktop layout collapses to a single column on tablets and phones. Controls use larger touch targets, transport actions reflow into a compact grid, long timelines scroll horizontally, and dialogs fit within the visible mobile viewport without introducing page-level horizontal overflow.
 
 ### Generated code
 
@@ -70,7 +101,7 @@ users    — id, username (unique), password_hash, created_at
 sketches — id, user_id (→ users), name, code, settings, created_at, updated_at
 ```
 
-Sketches store the generated Strudel code plus a versioned Layer Builder settings payload. Loading a sketch restores its tempo, harmony, layer order and parameters, mute/solo state, arrangement, and volume. Existing code-only sketches remain available to copy.
+Sketches store the generated Strudel code plus a versioned Layer Builder settings payload. Loading a sketch restores its tempo, harmony, layer order and parameters, mute/solo state, arrangement, volume, channel mix, Energy setting, launch quantization, and song timeline. Existing code-only sketches remain available to copy.
 
 ### API routes
 
@@ -182,7 +213,17 @@ The app deploys as a **Cloudflare Worker with static assets** (Workers + Assets 
 
 A post-build script (`scripts/fix-wrangler-output.mjs`) cleans up the generated `wrangler.json` before deploy: it removes bindings the adapter auto-adds that this app doesn't use (SESSION, IMAGES) and strips the `pages_build_output_dir` field that would otherwise put wrangler into Pages mode.
 
-Pushes to `main` deploy automatically via GitHub Actions (`.github/workflows/deploy.yml`).
+Pushes to `main` deploy automatically via GitHub Actions (`.github/workflows/deploy.yml`). The workflow:
+
+1. Installs the locked dependencies with `npm ci`.
+2. Builds the Astro Worker bundle.
+3. Applies pending D1 migrations to the production database.
+4. Deploys `dist/server` with Wrangler.
+
+The production endpoints are:
+
+- `https://chillmusic.digital`
+- `https://www.chillmusic.digital`
 
 ### Required GitHub secrets
 
@@ -197,12 +238,18 @@ The API token must have **Workers Scripts: Edit** and **Workers KV Storage: Edit
 
 ```bash
 npm run build
-cd dist/server && npx wrangler deploy
+npx wrangler d1 migrations apply chillmusic --remote
+cd dist/server
+npx wrangler deploy
 ```
 
 ### Custom domain
 
-After the first successful deploy, go to **Cloudflare dashboard → Workers & Pages → chillmusic-digital → Settings → Domains & Routes → Add Custom Domain** and enter your domain. Cloudflare manages the DNS record automatically if the domain is already proxied through Cloudflare.
+The `chillmusic.digital` and `www.chillmusic.digital` hostnames are already declared in `wrangler.toml`. Cloudflare manages their routes for the `chillmusic-digital` Worker; the zone and DNS records must remain active in the same Cloudflare account.
+
+### Verify a release
+
+For an automatic release, open the repository's **Actions** tab and wait for the **Deploy to Cloudflare Workers** workflow to finish. Then load `https://chillmusic.digital` and confirm that the composer opens, the audio engine reaches `READY`, and `/api/auth/me` returns a response.
 
 ### Cloudflare bindings
 
