@@ -50,4 +50,16 @@ jobs:
       - name: Deploy to Cloudflare Workers
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: cd dist/server && npx wrangler deploy
+        run: |
+          set +e
+          deploy_output="$(cd dist/server && npx wrangler deploy 2>&1)"
+          deploy_status=$?
+          printf '%s\n' "$deploy_output"
+          if [ "$deploy_status" -ne 0 ]; then
+            printf '### Worker deployment failure\n\n```text\n%s\n```\n' "$deploy_output" >> "$GITHUB_STEP_SUMMARY"
+            annotation="${deploy_output//'%'/'%25'}"
+            annotation="${annotation//$'\r'/'%0D'}"
+            annotation="${annotation//$'\n'/'%0A'}"
+            printf '::error title=Worker deployment failure::%s\n' "$annotation"
+            exit "$deploy_status"
+          fi
