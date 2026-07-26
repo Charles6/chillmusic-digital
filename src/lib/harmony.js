@@ -5,7 +5,7 @@
 // the least distance from the previous chord, so pads glide between chords
 // instead of jumping between parallel root positions.
 
-import { KEYS, PROGRESSIONS } from "../data/progressions";
+import { KEYS, PROGRESSIONS, normalizeKeyId } from "../data/progressions";
 
 const NOTE_NAMES = ["c", "db", "d", "eb", "e", "f", "gb", "g", "ab", "a", "bb", "b"];
 
@@ -111,7 +111,7 @@ function voiceLeadProgression(tonic, chords, baseOctave, center) {
 // ── Public API ────────────────────────────────────────────────────────
 
 export function buildHarmony(keyId, progressionId) {
-  const key = KEYS.find((k) => k.id === keyId) ?? KEYS[0];
+  const key = KEYS.find((k) => k.id === normalizeKeyId(keyId)) ?? KEYS[0];
   const prog = PROGRESSIONS.find((p) => p.id === progressionId) ?? PROGRESSIONS[0];
   const mode = prog.mode ?? "major";
   const degreeMap = mode === "minor" ? MINOR_DEGREES : MAJOR_DEGREES;
@@ -136,6 +136,18 @@ export function buildHarmony(keyId, progressionId) {
       .map((r) => `[${midiToName(r)} ~ ~ ${midiToName(r + 12)}]`)
       .join(" "),
   };
+  const bassPatterns = {
+    offbeat: roots.map((r) => `[~ ${midiToName(r)}]*4`).join(" "),
+    rolling: roots
+      .map((r) => `[~ ${midiToName(r)} ${midiToName(r)} ${midiToName(r)}]*4`)
+      .join(" "),
+    octave: roots
+      .map(
+        (r) =>
+          `[~ ${midiToName(r)} ${midiToName(r)} ${midiToName(r + 12)}]*4`,
+      )
+      .join(" "),
+  };
 
   // Arp: chord tones an octave above the pad, in voice-led order.
   const arpVoicings = voiceLeadProgression(key.tonic, prog.chords, 4, 69);
@@ -149,7 +161,8 @@ export function buildHarmony(keyId, progressionId) {
   // Melody material: scale + per-chord root degrees, so melodic layers can
   // generate diatonic lines with n(...).scale(...).
   const tonicName = NOTE_NAMES[((key.tonic % 12) + 12) % 12];
-  const scaleStr = `${tonicName}4:${mode}`;
+  const scaleName = prog.scale ?? mode;
+  const scaleStr = `${tonicName}4:${scaleName.replaceAll(" ", ":")}`;
   const chordDegrees = prog.chords.map((c) => {
     if (c.root in degreeMap) return degreeMap[c.root];
     // Non-diatonic root: use the degree just below it.
@@ -158,6 +171,47 @@ export function buildHarmony(keyId, progressionId) {
     }
     return 0;
   });
+
+  // Lead hooks repeat a recognizable two-bar idea across an eight-bar phrase.
+  // Chord tones (root/third/fifth = degree offsets 0/2/4) land in structurally
+  // strong positions; stepwise scale tones connect them on weak subdivisions.
+  const degreeAt = (bar) => {
+    const raw = chordDegrees[bar % chordDegrees.length] ?? 0;
+    return raw >= 4 ? raw - 7 : raw;
+  };
+  const leadBars = {
+    anthem: Array.from({ length: 8 }, (_, bar) => {
+      const d = degreeAt(bar);
+      const shapes = [
+        `[${d} ~ ${d + 2} ${d + 4} ~ ${d + 2} ${d + 1} ~]`,
+        `[${d} ~ ${d + 2} ${d + 4} ${d + 5} ${d + 4} ${d + 2} ~]`,
+        `[${d + 4} ~ ${d + 3} ${d + 2} ~ ${d} ${d + 1} ~]`,
+        `[${d + 2} ${d + 4} ~ ${d + 2} ${d + 1} ~ ${d} ~]`,
+      ];
+      return shapes[bar % shapes.length];
+    }),
+    pulse: Array.from({ length: 8 }, (_, bar) => {
+      const d = degreeAt(bar);
+      return bar % 2 === 0
+        ? `[${d} ~ ${d + 4} ~ ${d + 2} ~ ${d + 4} ~]`
+        : `[${d} ${d + 2} ~ ${d + 4} ~ ${d + 2} ${d + 1} ~]`;
+    }),
+    call: Array.from({ length: 8 }, (_, bar) => {
+      const d = degreeAt(bar);
+      return bar % 2 === 0
+        ? `[${d} ${d + 2} ${d + 4} ~ ~ ~ ~ ~]`
+        : `[~ ~ ~ ~ ${d + 7} ${d + 4} ${d + 2} ~]`;
+    }),
+  };
+  const leadLines = Object.fromEntries(
+    Object.entries(leadBars).map(([style, bars]) => [style, bars.join(" ")]),
+  );
+  const counterLine = Array.from({ length: 8 }, (_, bar) => {
+    const d = degreeAt(bar);
+    return bar % 2 === 0
+      ? `[~ ~ ${d + 7} ~ ~ ~ ${d + 4} ~]`
+      : `[~ ${d + 4} ~ ~ ${d + 2} ~ ~ ~]`;
+  }).join(" ");
 
   // Drone: tonic pedal under everything.
   const droneRoot = midiToName(24 + key.tonic); // c1-based
@@ -171,11 +225,14 @@ export function buildHarmony(keyId, progressionId) {
     mode,
     bassLine,
     bassLines,
+    bassPatterns,
     chordStr,
     arpLine,
     arpTones,
     scaleStr,
     chordDegrees,
+    leadLines,
+    counterLine,
     droneNotes,
   };
 }

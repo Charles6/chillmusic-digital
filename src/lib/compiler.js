@@ -17,10 +17,30 @@ export function compile(layers, context, { soloId = null } = {}) {
   }
 
   const parts = active.map((layer) => {
-    const expr =
+    const sourceExpr =
       typeof layer.code === "function"
         ? layer.code(layer.params, context)
         : layer.code;
+    const mixGain = typeof layer.mixGain === "number" ? layer.mixGain : 1;
+    const pan = typeof layer.pan === "number"
+      ? Math.min(1, Math.max(-1, layer.pan))
+      : 0;
+    const mixerEffects = [];
+
+    // Keep the mixer completely out of the signal path at its neutral values.
+    // In particular, a trailing center pan collapses stereo effects such as juxBy.
+    if (Math.abs(mixGain - 1) > 0.0001) {
+      mixerEffects.push(`  .postgain(${Number(mixGain.toFixed(3))})`);
+    }
+
+    if (Math.abs(pan) > 0.0001) {
+      const panPosition = Number(((pan + 1) / 2).toFixed(3));
+      mixerEffects.push(`  .pan(${panPosition})`);
+    }
+
+    const expr = mixerEffects.length
+      ? `(${sourceExpr})\n${mixerEffects.join("\n")}`
+      : sourceExpr;
 
     const indented = expr
       .split("\n")
@@ -31,7 +51,7 @@ export function compile(layers, context, { soloId = null } = {}) {
   });
 
   const stackExpr = `stack(\n${parts.join(",\n\n")}\n)`;
-  const display = `setcps(${context.bpm}/60)\n\n${stackExpr}`;
+  const display = `setcps(${context.bpm}/240) // one cycle = one 4/4 bar\n\n${stackExpr}`;
 
   return { display, stack: stackExpr };
 }

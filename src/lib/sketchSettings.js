@@ -1,6 +1,7 @@
 import { ARRANGEMENTS, DEFAULT_CONTEXT } from "../data/arrangements";
 import { BUILTIN_LAYERS } from "../data/layers";
-import { KEYS, PROGRESSIONS } from "../data/progressions";
+import { KEYS, PROGRESSIONS, normalizeKeyId } from "../data/progressions";
+import { compactTimeline, hydrateTimeline } from "./timeline";
 
 const SETTINGS_VERSION = 1;
 
@@ -16,6 +17,8 @@ function cloneBuiltinLayers() {
   return BUILTIN_LAYERS.map((layer) => ({
     ...layer,
     params: { ...layer.params },
+    mixGain: typeof layer.mixGain === "number" ? layer.mixGain : 1,
+    pan: typeof layer.pan === "number" ? layer.pan : 0,
   }));
 }
 
@@ -44,6 +47,9 @@ export function createSketchSettings({
   volume,
   soloId,
   activeArrangementId,
+  energy = 0.5,
+  timeline = [],
+  quantizeBars = 1,
 }) {
   return {
     version: SETTINGS_VERSION,
@@ -58,11 +64,16 @@ export function createSketchSettings({
       enabled: layer.enabled,
       muted: layer.muted,
       order: layer.order,
+      mixGain: layer.mixGain,
+      pan: layer.pan,
       params: { ...layer.params },
     })),
     volume,
     soloId,
     activeArrangementId,
+    energy,
+    timeline: compactTimeline(timeline),
+    quantizeBars,
   };
 }
 
@@ -80,10 +91,10 @@ export function hydrateSketchSettings(settings) {
         : DEFAULT_CONTEXT.bpm,
     swing:
       typeof savedContext.swing === "number" && Number.isFinite(savedContext.swing)
-        ? clamp(savedContext.swing, 0, 0.45)
+        ? clamp(savedContext.swing, 0, 0.18)
         : DEFAULT_CONTEXT.swing,
-    keyId: KEYS.some((key) => key.id === savedContext.keyId)
-      ? savedContext.keyId
+    keyId: KEYS.some((key) => key.id === normalizeKeyId(savedContext.keyId))
+      ? normalizeKeyId(savedContext.keyId)
       : DEFAULT_CONTEXT.keyId,
     progressionId: PROGRESSIONS.some(
       (progression) => progression.id === savedContext.progressionId,
@@ -100,7 +111,7 @@ export function hydrateSketchSettings(settings) {
   );
   const layers = cloneBuiltinLayers().map((layer) => {
     const saved = savedById.get(layer.id);
-    if (!saved) return layer;
+    if (!saved) return { ...layer, enabled: false };
 
     const savedParams = isRecord(saved.params) ? saved.params : {};
     const definitions = new Map(
@@ -117,6 +128,8 @@ export function hydrateSketchSettings(settings) {
       ...layer,
       enabled: typeof saved.enabled === "boolean" ? saved.enabled : layer.enabled,
       muted: typeof saved.muted === "boolean" ? saved.muted : layer.muted,
+      mixGain: typeof saved.mixGain === "number" ? clamp(saved.mixGain, 0, 1.5) : layer.mixGain,
+      pan: typeof saved.pan === "number" ? clamp(saved.pan, -1, 1) : layer.pan,
       order:
         typeof saved.order === "number" && Number.isFinite(saved.order)
           ? saved.order
@@ -144,5 +157,13 @@ export function hydrateSketchSettings(settings) {
       arrangementIds.has(settings.activeArrangementId)
         ? settings.activeArrangementId
         : null,
+    energy:
+      typeof settings.energy === "number" && Number.isFinite(settings.energy)
+        ? clamp(settings.energy, 0, 1)
+        : 0.5,
+    timeline: hydrateTimeline(settings.timeline),
+    quantizeBars: [0, 1, 4, 8].includes(settings.quantizeBars)
+      ? settings.quantizeBars
+      : 1,
   };
 }

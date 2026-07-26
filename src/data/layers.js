@@ -1,643 +1,631 @@
-// A general-purpose background vibe music boilerplate.
-//
-// Ten distinct layers cover the building blocks of most chill / lofi /
-// ambient compositions:
-//
-//   drums   — kick, snare, hats, perc      (rhythmic foundation)
-//   bass    — bass, drone                   (harmonic root)
-//   harmony — chords                        (sustained pad)
-//   melody  — melody, arp                   (foreground lines)
-//   fx      — texture                       (atmospheric warmth)
-//
-// Layers route to four FX buses via .orbit():
-//   1 = drums + bass (tight room)
-//   2 = chords + drone (long reverb tail)
-//   3 = melody + arp (long delay)
-//   4 = texture (own space)
-//
-// Each layer is independent — adding or removing one should always produce
-// a coherent result. Defaults aim for an 80–90 BPM background-vibe feel.
-//
-// Evolution: layers embed slow movement so long sessions drift instead of
-// looping identically — .lastOf(8, ...) fills, sine.slow(n) LFO sweeps,
-// .sometimesBy(...) ornaments. Global swing arrives via context.swing.
+// Trance layers use one Strudel cycle as one 4/4 bar. The shared grid makes
+// kick/bass interlock, bar-level fills, and 8/16-bar development predictable.
 
-// Append .swingBy when the global swing control is non-zero (drums only).
+function range(key, label, min, max, step) {
+  return { key, label, type: "range", min, max, step };
+}
+
+function select(key, label, options) {
+  return {
+    key,
+    label,
+    type: "select",
+    options: options.map(([value, optionLabel]) => ({ value, label: optionLabel })),
+  };
+}
+
+function text(key, label) {
+  return { key, label, type: "text" };
+}
+
 function swingSuffix(context) {
   const amount = Number(context?.swing ?? 0);
   return amount > 0 ? `\n  .swingBy(${amount}, 4)` : "";
 }
 
-export const BUILTIN_LAYERS = [
-  // ── DRUMS ───────────────────────────────────────────────────────────
+function sweptFilter(base, amount, cycles = 16) {
+  if (amount <= 0) return String(base);
+  const low = Math.max(80, Math.round(base * (1 - amount * 0.65)));
+  const high = Math.round(base * (1 + amount * 1.1));
+  return `sine.range(${low}, ${high}).slow(${cycles})`;
+}
 
+const SOUND_OPTIONS = [
+  ["supersaw", "Supersaw"],
+  ["sawtooth", "Saw"],
+  ["square", "Square"],
+  ["triangle", "Triangle"],
+  ["sine", "Sine"],
+];
+
+export const BUILTIN_LAYERS = [
   {
     id: "kick",
-    name: "Kick",
+    name: "Four-on-the-Floor Kick",
     category: "drums",
     order: 0,
-    enabled: false,
+    enabled: true,
     muted: false,
-    description: "Soft warm kick. Fill adds a turn every 8 bars.",
+    description: "The fixed quarter-note pulse. It also ducks the bass, harmony, and melody buses.",
     params: {
-      gain: 0.85,
-      pattern: "bd ~ ~ ~",
-      bank: "RolandTR707",
-      punch: 0,
-      room: 0.1,
-      fill: "none",
+      gain: 0.95,
+      bank: "RolandTR909",
+      punch: 0.2,
+      room: 0.04,
+      phrase: "breathe",
+      duckDepth: 0.85,
+      duckRelease: 0.2,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 1.5, step: 0.01 },
-      {
-        key: "pattern",
-        label: "Pattern",
-        type: "select",
-        options: [
-          { value: "bd ~ ~ ~", label: "Sparse (1)" },
-          { value: "bd ~ [~ bd] ~", label: "Heartbeat" },
-          { value: "bd ~ ~ [~ bd]", label: "Boom-bap" },
-          { value: "bd ~ bd ~", label: "Steady (1+3)" },
-          { value: "bd ~ [~ bd] [~ bd ~ ~]", label: "Pushed" },
-        ],
-      },
-      { key: "bank", label: "Bank", type: "text" },
-      { key: "punch", label: "Punch", type: "range", min: 0, max: 0.6, step: 0.05 },
-      { key: "room", label: "Room", type: "range", min: 0, max: 0.5, step: 0.01 },
-      {
-        key: "fill",
-        label: "Fill (bar 8)",
-        type: "select",
-        options: [
-          { value: "none", label: "None" },
-          { value: "breathe", label: "Breathe (drop out)" },
-          { value: "push", label: "Push (double-time)" },
-        ],
-      },
+      range("gain", "Gain", 0, 1.4, 0.01),
+      text("bank", "Bank"),
+      range("punch", "Punch", 0, 0.7, 0.05),
+      range("room", "Room", 0, 0.25, 0.01),
+      select("phrase", "Bar 8", [
+        ["steady", "Steady"],
+        ["breathe", "Drop final beat"],
+        ["push", "Double-time push"],
+      ]),
+      range("duckDepth", "Sidechain", 0, 1, 0.05),
+      range("duckRelease", "Pump", 0.05, 0.5, 0.01),
     ],
-    code: ({ gain, pattern, bank, punch, room, fill }, context) => {
-      const fillExpr =
-        fill === "breathe"
-          ? `\n  .lastOf(8, x => x.degradeBy(0.5))`
-          : fill === "push"
-            ? `\n  .lastOf(8, x => x.fast(2))`
+    code: ({ gain, bank, punch, room, phrase, duckDepth, duckRelease }) => {
+      const phraseExpr =
+        phrase === "breathe"
+          ? `\n  .lastOf(8, x => x.struct("x x x ~"))`
+          : phrase === "push"
+            ? `\n  .lastOf(8, x => x.fast(2).gain(0.65))`
             : "";
-      return `s("${pattern}")${bank ? `\n  .bank("${bank}")` : ""}${
-        punch > 0 ? `\n  .shape(${punch})` : ""
-      }${fillExpr}${swingSuffix(context)}
+      return `s("bd*4")
+  .bank("${bank}")${phraseExpr}
+  .shape(${punch})
+  .room(${room})
   .gain(${gain})
-  .room(${room})`;
+  .orbit(0)
+  .duckorbit("1:2:3")
+  .duckonset(0.01)
+  .duckattack(${duckRelease})
+  .duckdepth(${duckDepth})`;
     },
   },
 
   {
     id: "snare",
-    name: "Snare / Rim",
+    name: "Clap / Snare",
     category: "drums",
     order: 1,
-    enabled: false,
+    enabled: true,
     muted: false,
-    description: "Backbeat on 2 & 4. Laid-back drags it behind the beat for that lofi pocket.",
+    description: "A straight backbeat on beats 2 and 4, with deterministic phrase-ending rolls.",
     params: {
-      gain: 0.45,
-      pattern: "~ rim ~ rim",
-      bank: "RolandTR707",
-      late: 0.01,
-      room: 0.25,
-      fill: "none",
+      gain: 0.5,
+      voice: "layered",
+      bank: "RolandTR909",
+      room: 0.22,
+      fill: "ghost",
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 1, step: 0.01 },
-      {
-        key: "pattern",
-        label: "Pattern",
-        type: "select",
-        options: [
-          { value: "~ rim ~ rim", label: "Rim 2 & 4" },
-          { value: "~ sd ~ sd", label: "Snare 2 & 4" },
-          { value: "~ cp ~ cp", label: "Clap 2 & 4" },
-          { value: "~ rim ~ [rim ~ ~ rim]", label: "Rim + drag" },
-          { value: "~ [~ rim] ~ rim", label: "Displaced" },
-        ],
-      },
-      { key: "bank", label: "Bank", type: "text" },
-      { key: "late", label: "Laid-back", type: "range", min: 0, max: 0.04, step: 0.002 },
-      { key: "room", label: "Room", type: "range", min: 0, max: 0.6, step: 0.01 },
-      {
-        key: "fill",
-        label: "Fill (bar 8)",
-        type: "select",
-        options: [
-          { value: "none", label: "None" },
-          { value: "ghost", label: "Ghost doubles" },
-          { value: "roll", label: "Roll" },
-        ],
-      },
+      range("gain", "Gain", 0, 1, 0.01),
+      select("voice", "Voice", [
+        ["clap", "Clap"],
+        ["snare", "Snare"],
+        ["layered", "Clap + snare"],
+      ]),
+      text("bank", "Bank"),
+      range("room", "Room", 0, 0.7, 0.01),
+      select("fill", "Bar 8 fill", [
+        ["none", "None"],
+        ["ghost", "Ghost double"],
+        ["roll", "Fast roll"],
+      ]),
     ],
-    code: ({ gain, pattern, bank, late, room, fill }, context) => {
+    code: ({ gain, voice, bank, room, fill }, context) => {
+      const hit = voice === "clap" ? "cp" : voice === "snare" ? "sd" : "[cp,sd]";
       const fillExpr =
         fill === "ghost"
-          ? `\n  .lastOf(8, x => x.ply(2))`
+          ? `\n  .lastOf(8, x => x.ply(2).gain(0.72))`
           : fill === "roll"
-            ? `\n  .lastOf(8, x => x.fast(2))`
+            ? `\n  .lastOf(8, x => x.fast(4).gain(0.55))`
             : "";
-      return `s("${pattern}")${bank ? `\n  .bank("${bank}")` : ""}${fillExpr}${
-        late > 0 ? `\n  .late(${late})` : ""
-      }${swingSuffix(context)}
+      return `s("~ ${hit} ~ ${hit}")
+  .bank("${bank}")${fillExpr}${swingSuffix(context)}
+  .room(${room})
   .gain(${gain})
-  .room(${room})`;
+  .orbit(0)`;
     },
   },
 
   {
     id: "hats",
-    name: "Hats",
+    name: "Closed Hats",
     category: "drums",
     order: 2,
-    enabled: false,
+    enabled: true,
     muted: false,
-    description: "Crushed hats with groove accents, random drops, and a slow stereo drift.",
+    description: "Sixteenth-note propulsion with a repeating velocity groove and restrained humanization.",
     params: {
-      gain: 0.3,
-      density: 8,
-      groove: "tick",
-      bank: "RolandTR707",
-      crush: 6,
-      degrade: 0.2,
-      shimmer: 0.1,
-      drift: 0.5,
+      gain: 0.25,
+      density: 16,
+      accent: "rolling",
+      bank: "RolandTR909",
+      humanize: 0.04,
+      brightness: 8500,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.6, step: 0.01 },
-      { key: "density", label: "Density", type: "range", min: 4, max: 16, step: 4 },
-      {
-        key: "groove",
-        label: "Groove",
-        type: "select",
-        options: [
-          { value: "flat", label: "Flat" },
-          { value: "tick", label: "Downbeat accents" },
-          { value: "offbeat", label: "Offbeat accents" },
-        ],
-      },
-      { key: "bank", label: "Bank", type: "text" },
-      { key: "crush", label: "Crush", type: "range", min: 1, max: 16, step: 1 },
-      { key: "degrade", label: "Degrade", type: "range", min: 0, max: 0.6, step: 0.05 },
-      { key: "shimmer", label: "Shimmer", type: "range", min: 0, max: 0.4, step: 0.05 },
-      { key: "drift", label: "Stereo drift", type: "range", min: 0, max: 1, step: 0.1 },
+      range("gain", "Gain", 0, 0.7, 0.01),
+      select("density", "Density", [[8, "8ths"], [16, "16ths"]]),
+      select("accent", "Accent", [
+        ["flat", "Flat"],
+        ["rolling", "Rolling"],
+        ["offbeat", "Offbeat lift"],
+      ]),
+      text("bank", "Bank"),
+      range("humanize", "Humanize", 0, 0.15, 0.01),
+      range("brightness", "Brightness", 2500, 12000, 100),
     ],
-    code: ({ gain, density, groove, bank, crush, degrade, shimmer, drift }, context) => {
-      const accents =
-        groove === "tick" ? [1, 0.55, 0.8, 0.55] : groove === "offbeat" ? [0.55, 1, 0.6, 1] : null;
-      const gainExpr = accents
-        ? `"${accents.map((v) => +(v * gain).toFixed(2)).join(" ")}"`
-        : String(gain);
-      const panExpr =
-        drift > 0
-          ? `\n  .pan(sine.range(${+(0.5 - drift * 0.3).toFixed(2)}, ${+(0.5 + drift * 0.3).toFixed(2)}).slow(16))`
-          : "";
-      return `s("hh*${density}")${bank ? `\n  .bank("${bank}")` : ""}
-  .crush(${crush})
-  .degradeBy(${degrade})${
-    shimmer > 0 ? `\n  .sometimesBy(${shimmer}, x => x.speed(1.5))` : ""
-  }${panExpr}${swingSuffix(context)}
-  .gain(${gainExpr})`;
+    code: ({ gain, density, accent, bank, humanize, brightness }, context) => {
+      const accentPattern =
+        accent === "rolling"
+          ? `"[0.45 0.7 0.52 1]*4"`
+          : accent === "offbeat"
+            ? `"[0.4 1]*8"`
+            : "1";
+      return `s("hh*${density}")
+  .bank("${bank}")
+  .gain(${accentPattern})
+  .degradeBy(${humanize})
+  .lpf(${brightness})${swingSuffix(context)}
+  .postgain(${gain})
+  .orbit(0)`;
+    },
+  },
+
+  {
+    id: "open-hat",
+    name: "Open Hat / Ride",
+    category: "drums",
+    order: 3,
+    enabled: true,
+    muted: false,
+    description: "A separate lift layer: offbeat open hats for drive or quarter-note rides for peak energy.",
+    params: {
+      gain: 0.28,
+      style: "open",
+      bank: "RolandTR909",
+      room: 0.12,
+    },
+    paramDefs: [
+      range("gain", "Gain", 0, 0.8, 0.01),
+      select("style", "Style", [
+        ["open", "Offbeat open hat"],
+        ["ride", "Quarter-note ride"],
+        ["both", "Open hat + ride"],
+      ]),
+      text("bank", "Bank"),
+      range("room", "Room", 0, 0.5, 0.01),
+    ],
+    code: ({ gain, style, bank, room }, context) => {
+      const pattern =
+        style === "ride" ? "rd*4" : style === "both" ? "[~ oh]*4,rd*4" : "[~ oh]*4";
+      return `s("${pattern}")
+  .bank("${bank}")${swingSuffix(context)}
+  .room(${room})
+  .gain(${gain})
+  .orbit(0)`;
     },
   },
 
   {
     id: "perc",
-    name: "Percussion",
+    name: "Percussion / Fill",
     category: "drums",
-    order: 3,
-    enabled: false,
-    muted: false,
-    description: "Euclidean shaker / rim. Rotate shifts the pattern against the beat.",
-    params: {
-      gain: 0.22,
-      pulses: 5,
-      rotate: 0,
-      sound: "sh",
-      speed: 1,
-      bank: "",
-    },
-    paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.5, step: 0.01 },
-      { key: "pulses", label: "Pulses (of 8)", type: "range", min: 1, max: 7, step: 1 },
-      { key: "rotate", label: "Rotate", type: "range", min: 0, max: 7, step: 1 },
-      {
-        key: "sound",
-        label: "Sound",
-        type: "select",
-        options: [
-          { value: "sh", label: "Shaker" },
-          { value: "rim", label: "Rim" },
-          { value: "cb", label: "Cowbell" },
-          { value: "perc", label: "Perc" },
-          { value: "click", label: "Click" },
-        ],
-      },
-      { key: "speed", label: "Pitch", type: "range", min: 0.5, max: 2, step: 0.05 },
-      { key: "bank", label: "Bank", type: "text" },
-    ],
-    code: ({ gain, pulses, rotate, sound, speed, bank }, context) =>
-      `s("${sound}(${pulses},8${rotate > 0 ? `,${rotate}` : ""})")${
-        bank ? `\n  .bank("${bank}")` : ""
-      }${speed !== 1 ? `\n  .speed(${speed})` : ""}${swingSuffix(context)}
-  .gain(${gain})`,
-  },
-
-  // ── BASS ────────────────────────────────────────────────────────────
-
-  {
-    id: "bass",
-    name: "Bass",
-    category: "bass",
     order: 4,
     enabled: false,
     muted: false,
-    description: "Filtered sawtooth bass. Sweep opens and closes the filter over 32 bars.",
+    description: "A light 16-step supporting rhythm. Its job is groove and phrase punctuation, not density.",
     params: {
-      gain: 0.5,
-      style: "roots",
-      sound: "sawtooth",
-      slow: 2,
-      lpf: 700,
-      sweep: 0.3,
-      attack: 0.05,
-      release: 0.4,
+      gain: 0.18,
+      pulses: 5,
+      rotate: 3,
+      sound: "rim",
+      bank: "RolandTR909",
+      phraseFill: 0.25,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 1, step: 0.01 },
-      {
-        key: "style",
-        label: "Style",
-        type: "select",
-        options: [
-          { value: "roots", label: "Whole-note roots" },
-          { value: "rootFifth", label: "Root + fifth" },
-          { value: "octave", label: "Octave pulse" },
-        ],
-      },
-      { key: "sound", label: "Sound", type: "text" },
-      { key: "slow", label: "Slow", type: "range", min: 0.5, max: 4, step: 0.5 },
-      { key: "lpf", label: "LPF (Hz)", type: "range", min: 200, max: 2000, step: 10 },
-      { key: "sweep", label: "Sweep", type: "range", min: 0, max: 1, step: 0.05 },
-      { key: "attack", label: "Attack", type: "range", min: 0, max: 0.5, step: 0.01 },
-      { key: "release", label: "Release", type: "range", min: 0, max: 1.5, step: 0.05 },
+      range("gain", "Gain", 0, 0.5, 0.01),
+      range("pulses", "Pulses / 16", 2, 11, 1),
+      range("rotate", "Rotate", 0, 15, 1),
+      select("sound", "Sound", [
+        ["rim", "Rim"],
+        ["sh", "Shaker"],
+        ["lt", "Low tom"],
+        ["mt", "Mid tom"],
+        ["cb", "Cowbell"],
+      ]),
+      text("bank", "Bank"),
+      range("phraseFill", "Bar 8 fill", 0, 0.6, 0.05),
     ],
-    code: ({ gain, style, sound, slow, lpf, sweep, attack, release }, context) => {
-      const line = context.bassLines?.[style] ?? context.bassLine;
-      const lpfExpr =
-        sweep > 0
-          ? `sine.range(${Math.round(lpf * (1 - sweep * 0.4))}, ${Math.round(lpf * (1 + sweep * 0.6))}).slow(32)`
-          : String(lpf);
-      return `note("<${line}>")
+    code: ({ gain, pulses, rotate, sound, bank, phraseFill }, context) =>
+      `s("${sound}(${pulses},16,${rotate})")
+  .bank("${bank}")
+  .lastOf(8, x => x.fast(2).gain(${phraseFill}))${swingSuffix(context)}
+  .gain(${gain})
+  .orbit(0)`,
+  },
+
+  {
+    id: "bass",
+    name: "Rolling Bass Engine",
+    category: "bass",
+    order: 5,
+    enabled: true,
+    muted: false,
+    description: "Linked mono sub and short mid-bass notes occupy the spaces between the four kick hits.",
+    params: {
+      gain: 0.7,
+      style: "rolling",
+      sound: "sawtooth",
+      subGain: 0.32,
+      midGain: 0.42,
+      lpf: 850,
+      sweep: 0.18,
+      release: 0.12,
+      drive: 0.12,
+    },
+    paramDefs: [
+      range("gain", "Bus Gain", 0, 1, 0.01),
+      select("style", "Rhythm", [
+        ["offbeat", "Offbeat 8ths"],
+        ["rolling", "Rolling 16ths"],
+        ["octave", "Octave roll"],
+      ]),
+      select("sound", "Mid Sound", SOUND_OPTIONS.slice(1)),
+      range("subGain", "Sub", 0, 0.7, 0.01),
+      range("midGain", "Mid", 0, 0.8, 0.01),
+      range("lpf", "LPF", 180, 2400, 20),
+      range("sweep", "Filter Motion", 0, 0.8, 0.05),
+      range("release", "Release", 0.03, 0.45, 0.01),
+      range("drive", "Drive", 0, 0.6, 0.05),
+    ],
+    code: ({ gain, style, sound, subGain, midGain, lpf, sweep, release, drive }, context) => {
+      const midPattern = context.bassPatterns?.[style] ?? context.bassPatterns?.rolling ?? "[~ a2 a2 a2]*4";
+      const subPattern = context.bassPatterns?.offbeat ?? "[~ a2]*4";
+      const filter = sweptFilter(lpf, sweep, 16);
+      return `stack(
+  note("<${subPattern}>")
+    .sound("sine")
+    .release(${Math.max(0.08, release)})
+    .gain(${subGain})
+    .orbit(1),
+  note("<${midPattern}>")
+    .sound("${sound}")
+    .lpf(${filter})
+    .release(${release})
+    .shape(${drive})
+    .gain(${midGain})
+    .orbit(1)
+)
+  .gain(${gain})`;
+    },
+  },
+
+  {
+    id: "chords",
+    name: "Wide Trance Pad",
+    category: "harmony",
+    order: 6,
+    enabled: true,
+    muted: false,
+    description: "One voice-led chord per bar. Slow filter motion creates long tension and release.",
+    params: {
+      gain: 0.24,
+      sound: "supersaw",
+      unison: 3,
+      attack: 0.35,
+      release: 1.4,
+      lpf: 2600,
+      sweep: 0.42,
+      room: 0.72,
+      octaveAir: 0.2,
+    },
+    paramDefs: [
+      range("gain", "Gain", 0, 0.6, 0.01),
+      select("sound", "Sound", SOUND_OPTIONS),
+      range("unison", "Unison Voices", 1, 5, 1),
+      range("attack", "Attack", 0.02, 2, 0.02),
+      range("release", "Release", 0.2, 4, 0.1),
+      range("lpf", "LPF", 400, 7000, 50),
+      range("sweep", "16-bar Sweep", 0, 1, 0.05),
+      range("room", "Room", 0, 1, 0.01),
+      range("octaveAir", "Octave Air", 0, 0.5, 0.05),
+    ],
+    code: ({ gain, sound, unison, attack, release, lpf, sweep, room, octaveAir }, context) =>
+      `note("<${context.chordStr}>")
   .sound("${sound}")
-  .slow(${slow})
-  .lpf(${lpfExpr})
+  .unison(${sound === "supersaw" ? unison : 1})
+  .off(0, x => x.add(note(12)).gain(${octaveAir}))
   .attack(${attack})
   .release(${release})
+  .lpf(${sweptFilter(lpf, sweep, 16)})
+  .room(${room})
   .gain(${gain})
-  .orbit(1)`;
-    },
+  .orbit(2)`,
   },
 
   {
     id: "drone",
-    name: "Drone",
-    category: "bass",
-    order: 5,
-    enabled: false,
+    name: "Gated Chord Pluck",
+    category: "harmony",
+    order: 7,
+    enabled: true,
     muted: false,
-    description: "Tonic pedal under everything. Swell makes it rise and fall like breathing.",
+    description: "A rhythmic chord-tone layer that supplies syncopation without stealing the lead's register.",
     params: {
       gain: 0.2,
-      voicing: "rootFifth",
-      sound: "sine",
-      lpf: 400,
-      swell: 0.5,
-      attack: 1.5,
-      release: 3,
+      rhythm: "syncopated",
+      sound: "square",
+      lpf: 1800,
+      sweep: 0.28,
+      release: 0.18,
+      delay: 0.22,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.5, step: 0.01 },
-      {
-        key: "voicing",
-        label: "Voicing",
-        type: "select",
-        options: [
-          { value: "root", label: "Root only" },
-          { value: "rootFifth", label: "Root + fifth" },
-          { value: "deep", label: "Deep (sub octave)" },
-        ],
-      },
-      {
-        key: "sound",
-        label: "Sound",
-        type: "select",
-        options: [
-          { value: "sine", label: "Sine" },
-          { value: "triangle", label: "Triangle" },
-          { value: "sawtooth", label: "Sawtooth" },
-        ],
-      },
-      { key: "lpf", label: "LPF (Hz)", type: "range", min: 100, max: 1200, step: 20 },
-      { key: "swell", label: "Swell", type: "range", min: 0, max: 1, step: 0.05 },
-      { key: "attack", label: "Attack", type: "range", min: 0, max: 4, step: 0.1 },
-      { key: "release", label: "Release", type: "range", min: 0.5, max: 6, step: 0.1 },
+      range("gain", "Gain", 0, 0.55, 0.01),
+      select("rhythm", "Gate", [
+        ["eighth", "Straight 8ths"],
+        ["offbeat", "Offbeat"],
+        ["syncopated", "Syncopated"],
+      ]),
+      select("sound", "Sound", SOUND_OPTIONS),
+      range("lpf", "LPF", 300, 5000, 50),
+      range("sweep", "Filter Motion", 0, 1, 0.05),
+      range("release", "Release", 0.04, 0.7, 0.01),
+      range("delay", "Delay", 0, 0.65, 0.01),
     ],
-    code: ({ gain, voicing, sound, lpf, swell, attack, release }, context) => {
-      const notes = context.droneNotes?.[voicing] ?? context.droneNotes?.root ?? "[c2]";
-      const gainExpr =
-        swell > 0
-          ? `sine.range(${+(gain * (1 - swell * 0.6)).toFixed(3)}, ${gain}).slow(24)`
-          : String(gain);
-      return `note("${notes}")
-  .sound("${sound}")
-  .slow(4)
-  .lpf(${lpf})
-  .attack(${attack})
-  .release(${release})
-  .gain(${gainExpr})
-  .orbit(2)`;
-    },
-  },
-
-  // ── HARMONY ─────────────────────────────────────────────────────────
-
-  {
-    id: "chords",
-    name: "Chords",
-    category: "harmony",
-    order: 6,
-    enabled: false,
-    muted: false,
-    description: "Voice-led chord pad — each chord glides from the last. Sweep breathes over 48 bars.",
-    params: {
-      gain: 0.28,
-      sound: "triangle",
-      movement: "sustain",
-      slow: 2,
-      attack: 0.5,
-      release: 1.5,
-      lpf: 2200,
-      sweep: 0.4,
-      room: 0.7,
-    },
-    paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.6, step: 0.01 },
-      { key: "sound", label: "Sound", type: "text" },
-      {
-        key: "movement",
-        label: "Movement",
-        type: "select",
-        options: [
-          { value: "sustain", label: "Sustain" },
-          { value: "pulse", label: "Pulse (3 of 8)" },
-          { value: "offbeat", label: "Offbeat stabs" },
-        ],
-      },
-      { key: "slow", label: "Slow", type: "range", min: 1, max: 8, step: 0.5 },
-      { key: "attack", label: "Attack", type: "range", min: 0, max: 2, step: 0.05 },
-      { key: "release", label: "Release", type: "range", min: 0.1, max: 4, step: 0.1 },
-      { key: "lpf", label: "LPF (Hz)", type: "range", min: 500, max: 5000, step: 50 },
-      { key: "sweep", label: "Sweep", type: "range", min: 0, max: 1, step: 0.05 },
-      { key: "room", label: "Room", type: "range", min: 0, max: 1, step: 0.01 },
-    ],
-    code: ({ gain, sound, movement, slow, attack, release, lpf, sweep, room }, context) => {
-      const structExpr =
-        movement === "pulse"
-          ? `\n  .struct("x(3,8)")`
-          : movement === "offbeat"
-            ? `\n  .struct("~ x ~ x")`
-            : "";
-      const lpfExpr =
-        sweep > 0
-          ? `sine.range(${Math.round(lpf * (1 - sweep * 0.5))}, ${Math.round(lpf * (1 + sweep * 0.5))}).slow(48)`
-          : String(lpf);
+    code: ({ gain, rhythm, sound, lpf, sweep, release, delay }, context) => {
+      const gate =
+        rhythm === "eighth"
+          ? "x*8"
+          : rhythm === "offbeat"
+            ? "[~ x]*4"
+            : "x ~ [~ x] x ~ x [~ x]";
       return `note("<${context.chordStr}>")
-  .sound("${sound}")${structExpr}
-  .slow(${slow})
-  .attack(${attack})
+  .struct("${gate}")
+  .sound("${sound}")
   .release(${release})
-  .lpf(${lpfExpr})
-  .room(${room})
+  .lpf(${sweptFilter(lpf, sweep, 8)})
+  .delay(${delay})
+  .delaytime(0.375)
+  .delayfeedback(0.35)
   .gain(${gain})
   .orbit(2)`;
-    },
-  },
-
-  // ── MELODY ──────────────────────────────────────────────────────────
-
-  {
-    id: "melody",
-    name: "Melody",
-    category: "melody",
-    order: 7,
-    enabled: false,
-    muted: false,
-    description: "Diatonic line generated from the current key and chords. Echo answers an octave up.",
-    params: {
-      gain: 0.18,
-      sound: "triangle",
-      style: "wander",
-      echo: 0.4,
-      delay: 0.5,
-      delayTime: 0.375,
-      delayFeedback: 0.4,
-      degrade: 0.3,
-    },
-    paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.5, step: 0.01 },
-      { key: "sound", label: "Sound", type: "text" },
-      {
-        key: "style",
-        label: "Style",
-        type: "select",
-        options: [
-          { value: "rise", label: "Rising arpeggio" },
-          { value: "fall", label: "Falling arpeggio" },
-          { value: "wander", label: "Wander" },
-          { value: "reply", label: "Call & response" },
-          { value: "minimal", label: "Minimal" },
-        ],
-      },
-      { key: "echo", label: "Octave echo", type: "range", min: 0, max: 0.8, step: 0.05 },
-      { key: "delay", label: "Delay", type: "range", min: 0, max: 0.8, step: 0.01 },
-      { key: "delayTime", label: "Delay Time", type: "range", min: 0.05, max: 0.75, step: 0.005 },
-      { key: "delayFeedback", label: "Delay FB", type: "range", min: 0, max: 0.8, step: 0.01 },
-      { key: "degrade", label: "Degrade", type: "range", min: 0, max: 0.7, step: 0.05 },
-    ],
-    code: ({ gain, sound, style, echo, delay, delayTime, delayFeedback, degrade }, context) => {
-      const degrees = context.chordDegrees ?? [0];
-      // Fold high chord roots down an octave so the line stays in a singable
-      // register instead of chasing vi/VII chords up the scale.
-      const phrase = (rawDegree, i) => {
-        const d = rawDegree >= 4 ? rawDegree - 7 : rawDegree;
-        switch (style) {
-          case "rise":
-            return `[${d} ${d + 2} ${d + 4} ${d + 7}]`;
-          case "fall":
-            return `[${d + 7} ${d + 4} ${d + 2} ${d}]`;
-          case "reply":
-            return i % 2 === 0
-              ? `[${d} ${d + 2} ${d + 4} ~]`
-              : `[~ ~ ${d + 7} ${d + 4}]`;
-          case "minimal":
-            return `[${d + 7} ~ ~ ~]`;
-          case "wander":
-          default: {
-            const shapes = [
-              `[${d + 4} ~ ${d + 2} ${d + 7}]`,
-              `[~ ${d} ${d + 4} ~]`,
-              `[${d + 2} ~ ~ ${d + 5}]`,
-              `[${d + 7} ${d + 4} ~ ${d + 2}]`,
-            ];
-            return shapes[i % shapes.length];
-          }
-        }
-      };
-      const line = degrees.map(phrase).join(" ");
-      return `n("<${line}>")${
-        echo > 0 ? `\n  .off(0.375, x => x.add(n(7)).gain(${echo}))` : ""
-      }
-  .scale("${context.scaleStr}")
-  .sound("${sound}")
-  .delay(${delay})
-  .delaytime(${delayTime})
-  .delayfeedback(${delayFeedback})
-  .degradeBy(${degrade})
-  .gain(${gain})
-  .orbit(3)`;
     },
   },
 
   {
     id: "arp",
-    name: "Arp",
+    name: "Sixteenth Arpeggio",
     category: "melody",
     order: 8,
-    enabled: false,
+    enabled: true,
     muted: false,
-    description: "Steady arpeggiator over the chord tones. Sits behind the melody, in front of the pad.",
+    description: "Chord tones provide continuous motion; every fourth bar reverses predictably for phrasing.",
     params: {
-      gain: 0.15,
-      sound: "sine",
-      direction: "up",
-      rate: "8th",
-      slow: 2,
-      lpf: 3000,
-      delay: 0.3,
-      degrade: 0.15,
+      gain: 0.16,
+      sound: "sawtooth",
+      direction: "updown",
+      rate: 16,
+      lpf: 3400,
+      sweep: 0.3,
+      delay: 0.28,
+      phraseTurn: true,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.4, step: 0.01 },
-      {
-        key: "sound",
-        label: "Sound",
-        type: "select",
-        options: [
-          { value: "sine", label: "Sine" },
-          { value: "triangle", label: "Triangle" },
-          { value: "sawtooth", label: "Sawtooth" },
-          { value: "square", label: "Square" },
-        ],
-      },
-      {
-        key: "direction",
-        label: "Direction",
-        type: "select",
-        options: [
-          { value: "up", label: "Up" },
-          { value: "down", label: "Down" },
-          { value: "updown", label: "Up-down" },
-          { value: "pinch", label: "Pinch (out-in)" },
-        ],
-      },
-      {
-        key: "rate",
-        label: "Rate",
-        type: "select",
-        options: [
-          { value: "8th", label: "8th notes" },
-          { value: "16th", label: "16th notes" },
-        ],
-      },
-      { key: "slow", label: "Slow", type: "range", min: 1, max: 4, step: 0.5 },
-      { key: "lpf", label: "LPF (Hz)", type: "range", min: 500, max: 6000, step: 50 },
-      { key: "delay", label: "Delay", type: "range", min: 0, max: 0.7, step: 0.01 },
-      { key: "degrade", label: "Degrade", type: "range", min: 0, max: 0.6, step: 0.05 },
+      range("gain", "Gain", 0, 0.45, 0.01),
+      select("sound", "Sound", SOUND_OPTIONS),
+      select("direction", "Direction", [
+        ["up", "Up"],
+        ["down", "Down"],
+        ["updown", "Up / down"],
+        ["weave", "Octave weave"],
+      ]),
+      select("rate", "Rate", [[8, "8ths"], [16, "16ths"]]),
+      range("lpf", "LPF", 500, 7000, 50),
+      range("sweep", "Filter Motion", 0, 1, 0.05),
+      range("delay", "Delay", 0, 0.7, 0.01),
+      select("phraseTurn", "Bar 4 turn", [[true, "Reverse"], [false, "None"]]),
     ],
-    code: ({ gain, sound, direction, rate, slow, lpf, delay, degrade }, context) => {
-      const chords = context.arpTones ?? [["c4", "e4", "g4", "b4"]];
-      const orderTones = (tones) => {
+    code: ({ gain, sound, direction, rate, lpf, sweep, delay, phraseTurn }, context) => {
+      const chords = context.arpTones ?? [["a4", "c5", "e5", "a5"]];
+      const order = (tones) => {
         const t = [...tones];
         while (t.length < 4) t.push(t[t.length - 1]);
-        switch (direction) {
-          case "down":   return [t[3], t[2], t[1], t[0]];
-          case "updown": return [t[0], t[1], t[2], t[3], t[2], t[1]];
-          case "pinch":  return [t[0], t[3], t[1], t[2]];
-          case "up":
-          default:       return [t[0], t[1], t[2], t[3]];
-        }
+        if (direction === "down") return [t[3], t[2], t[1], t[0]];
+        if (direction === "updown") return [t[0], t[1], t[2], t[3], t[2], t[1]];
+        if (direction === "weave") return [t[0], t[2], t[1], t[3]];
+        return [t[0], t[1], t[2], t[3]];
       };
       const line = chords
         .map((tones) => {
-          const seq = orderTones(tones);
-          const steps = rate === "16th" ? [...seq, ...seq] : seq;
+          const source = order(tones);
+          const steps = Array.from({ length: rate }, (_, index) => source[index % source.length]);
           return `[${steps.join(" ")}]`;
         })
         .join(" ");
-      return `note("<${line}>")
+      const turn = phraseTurn === true || phraseTurn === "true"
+        ? `\n  .lastOf(4, x => x.rev())`
+        : "";
+      return `note("<${line}>")${turn}
   .sound("${sound}")
-  .slow(${slow})
-  .lpf(${lpf})
+  .release(0.1)
+  .lpf(${sweptFilter(lpf, sweep, 8)})
   .delay(${delay})
-  .degradeBy(${degrade})
+  .delaytime(0.375)
+  .delayfeedback(0.42)
   .gain(${gain})
   .orbit(3)`;
     },
   },
 
-  // ── FX ──────────────────────────────────────────────────────────────
+  {
+    id: "melody",
+    name: "Lead Hook",
+    category: "melody",
+    order: 9,
+    enabled: true,
+    muted: false,
+    description: "An eight-bar A/A′/B/A″ motif: repetition supplies identity, controlled endings supply development.",
+    params: {
+      gain: 0.2,
+      sound: "supersaw",
+      unison: 3,
+      style: "anthem",
+      lpf: 4800,
+      release: 0.28,
+      room: 0.35,
+      delay: 0.34,
+      octaveClimax: 0.35,
+    },
+    paramDefs: [
+      range("gain", "Gain", 0, 0.55, 0.01),
+      select("sound", "Sound", SOUND_OPTIONS),
+      range("unison", "Unison Voices", 1, 5, 1),
+      select("style", "Motif", [
+        ["anthem", "Anthem"],
+        ["pulse", "Pulse"],
+        ["call", "Call / response"],
+      ]),
+      range("lpf", "LPF", 700, 9000, 50),
+      range("release", "Release", 0.08, 1.2, 0.02),
+      range("room", "Room", 0, 0.8, 0.01),
+      range("delay", "Delay", 0, 0.7, 0.01),
+      range("octaveClimax", "Bar 8 lift", 0, 0.7, 0.05),
+    ],
+    code: ({ gain, sound, unison, style, lpf, release, room, delay, octaveClimax }, context) => {
+      const line = context.leadLines?.[style] ?? context.leadLines?.anthem ?? "[0 ~ 2 4 ~ 2 1 ~]";
+      return `n("<${line}>")
+  .scale("${context.scaleStr}")
+  .lastOf(8, x => x.off(0, y => y.add(n(7)).gain(${octaveClimax})))
+  .sound("${sound}")
+  .unison(${sound === "supersaw" ? unison : 1})
+  .release(${release})
+  .lpf(${lpf})
+  .room(${room})
+  .delay(${delay})
+  .delaytime(0.375)
+  .delayfeedback(0.4)
+  .gain(${gain})
+  .orbit(3)`;
+    },
+  },
+
+  {
+    id: "counter",
+    name: "Countermelody",
+    category: "melody",
+    order: 10,
+    enabled: false,
+    muted: false,
+    description: "Sparse answers occupy the lead's rests and move in a complementary register.",
+    params: {
+      gain: 0.11,
+      sound: "triangle",
+      octave: 1,
+      lpf: 3600,
+      delay: 0.24,
+    },
+    paramDefs: [
+      range("gain", "Gain", 0, 0.35, 0.01),
+      select("sound", "Sound", SOUND_OPTIONS),
+      range("octave", "Octave", 0, 2, 1),
+      range("lpf", "LPF", 500, 7000, 50),
+      range("delay", "Delay", 0, 0.6, 0.01),
+    ],
+    code: ({ gain, sound, octave, lpf, delay }, context) =>
+      `n("<${context.counterLine ?? "[~ ~ 7 ~ ~ ~ 4 ~]"}>")
+  .scale("${context.scaleStr}")
+  .add(n(${octave * 7}))
+  .sound("${sound}")
+  .release(0.3)
+  .lpf(${lpf})
+  .delay(${delay})
+  .delaytime(0.5)
+  .gain(${gain})
+  .orbit(3)`,
+  },
+
+  {
+    id: "transition",
+    name: "Transitions",
+    category: "fx",
+    order: 11,
+    enabled: true,
+    muted: false,
+    description: "An eight-bar noise rise and phrase-start crash make structural boundaries audible.",
+    params: {
+      gain: 0.11,
+      rise: 0.7,
+      crash: 0.32,
+      length: 8,
+      hpf: 900,
+    },
+    paramDefs: [
+      range("gain", "Gain", 0, 0.35, 0.01),
+      range("rise", "Riser", 0, 1, 0.05),
+      range("crash", "Crash", 0, 0.7, 0.01),
+      select("length", "Phrase", [[4, "4 bars"], [8, "8 bars"], [16, "16 bars"]]),
+      range("hpf", "HPF", 100, 5000, 50),
+    ],
+    code: ({ gain, rise, crash, length, hpf }) => {
+      const crashPattern = Array.from(
+        { length: Number(length) },
+        (_, index) => (index === 0 ? "cr" : "~"),
+      ).join(" ");
+      return `stack(
+  s("pink")
+    .hpf(${hpf})
+    .lpf(saw.range(1200, 11000).slow(${length}))
+    .gain(saw.range(0, ${rise}).slow(${length})),
+  s("<${crashPattern}>")
+    .gain(${crash})
+    .room(0.75)
+)
+  .gain(${gain})
+  .orbit(4)`;
+    },
+  },
 
   {
     id: "texture",
-    name: "Texture",
+    name: "Atmosphere",
     category: "fx",
-    order: 9,
-    enabled: false,
+    order: 12,
+    enabled: true,
     muted: false,
-    description: "Atmosphere bed — vinyl crackle, noise washes, or field-recording-style birds.",
+    description: "High-passed air and distant noise fill the stereo background without adding rhythmic clutter.",
     params: {
-      gain: 0.08,
-      sound: "crackle*4",
-      hpf: 1000,
-      hpfMod: 0,
+      gain: 0.045,
+      sound: "pink",
+      hpf: 2200,
+      movement: 1200,
+      width: 0.65,
     },
     paramDefs: [
-      { key: "gain", label: "Gain", type: "range", min: 0, max: 0.3, step: 0.005 },
-      {
-        key: "sound",
-        label: "Sound",
-        type: "select",
-        options: [
-          { value: "crackle*4", label: "Vinyl crackle" },
-          { value: "pink", label: "Rain (pink noise)" },
-          { value: "brown", label: "Rumble (brown noise)" },
-          { value: "[birds:1 ~ birds:3 ~ birds:5 ~ birds:2 ~]/4", label: "Birds" },
-        ],
-      },
-      { key: "hpf", label: "HPF (Hz)", type: "range", min: 100, max: 5000, step: 50 },
-      { key: "hpfMod", label: "HPF Sweep", type: "range", min: 0, max: 4000, step: 100 },
+      range("gain", "Gain", 0, 0.2, 0.005),
+      select("sound", "Texture", [
+        ["pink", "Air"],
+        ["white", "Bright noise"],
+        ["brown", "Dark noise"],
+      ]),
+      range("hpf", "HPF", 200, 7000, 50),
+      range("movement", "Filter Motion", 0, 5000, 100),
+      range("width", "Stereo Width", 0, 1, 0.05),
     ],
-    code: ({ gain, sound, hpf, hpfMod }) => {
-      const hpfExpr = hpfMod > 0
-        ? `sine.range(${hpf}, ${hpf + hpfMod}).slow(20)`
-        : String(hpf);
+    code: ({ gain, sound, hpf, movement, width }) => {
+      const high = hpf + movement;
       return `s("${sound}")
-  .hpf(${hpfExpr})
+  .hpf(sine.range(${hpf}, ${high}).slow(24))
+  .juxBy(${width}, x => x.rev())
   .gain(${gain})
   .orbit(4)`;
     },

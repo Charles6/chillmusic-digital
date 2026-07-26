@@ -2,7 +2,9 @@
 //
 // Encoded payload (kept short — it lives in the URL):
 //   { v: 1, b: bpm, w: swing, k: keyId, p: progressionId,
-//     l: [{ id, e: enabled, m: muted, o: order, p: params }, ...] }
+//     e: energy, q: quantizeBars, t: timeline,
+//     l: [{ id, e: enabled, m: muted, o: order, g: mixGain,
+//           a: pan, p: params }, ...] }
 
 const VERSION = 1;
 const HASH_KEY = "s";
@@ -23,18 +25,23 @@ function base64urlDecode(str) {
   return b64;
 }
 
-export function encodeState({ context, layers }) {
+export function encodeState({ context, layers, energy = 0.5, timeline = [], quantizeBars = 1 }) {
   const payload = {
     v: VERSION,
     b: context.bpm,
     w: context.swing,
     k: context.keyId,
     p: context.progressionId,
+    e: energy,
+    q: quantizeBars,
+    t: timeline,
     l: layers.map((layer) => ({
       id: layer.id,
       e: layer.enabled ? 1 : 0,
       m: layer.muted ? 1 : 0,
       o: layer.order,
+      g: layer.mixGain,
+      a: layer.pan,
       p: layer.params,
     })),
   };
@@ -85,7 +92,7 @@ export function applyDecodedLayers(baseLayers, decodedLayers) {
   const byId = new Map(decodedLayers.map((d) => [d.id, d]));
   return baseLayers.map((layer) => {
     const d = byId.get(layer.id);
-    if (!d) return layer;
+    if (!d) return { ...layer, enabled: false };
     const params = { ...layer.params };
     if (d.p && typeof d.p === "object") {
       for (const key of Object.keys(layer.params)) {
@@ -98,6 +105,8 @@ export function applyDecodedLayers(baseLayers, decodedLayers) {
       muted: d.m ? true : false,
       order: typeof d.o === "number" ? d.o : layer.order,
       params,
+      mixGain: typeof d.g === "number" ? Math.min(1.5, Math.max(0, d.g)) : layer.mixGain,
+      pan: typeof d.a === "number" ? Math.min(1, Math.max(-1, d.a)) : layer.pan,
     };
   });
 }

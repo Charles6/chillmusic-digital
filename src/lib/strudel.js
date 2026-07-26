@@ -85,10 +85,10 @@ export function playCode(stackCode, bpm) {
   if (!ns) throw new Error("Strudel is not ready.");
   hushStrudel();
   if (typeof repl?.setCps === "function") {
-    repl.setCps(bpm / 60);
+    repl.setCps(bpm / 240);
   } else {
     const setcpsFn = ns.setcps ?? window.setcps;
-    if (typeof setcpsFn === "function") setcpsFn(bpm / 60);
+    if (typeof setcpsFn === "function") setcpsFn(bpm / 240);
   }
   new Function("strudel", `with (strudel) { (${stackCode}).play() }`)(ns);
 }

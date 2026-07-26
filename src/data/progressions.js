@@ -7,25 +7,94 @@
 // `mode` tells melodic layers which scale to draw from ("major" | "minor").
 
 export const KEYS = [
-  { id: "C",  name: "C major",  tonic: 0 },
-  { id: "Db", name: "Db major", tonic: 1 },
-  { id: "D",  name: "D major",  tonic: 2 },
-  { id: "Eb", name: "Eb major", tonic: 3 },
-  { id: "E",  name: "E major",  tonic: 4 },
-  { id: "F",  name: "F major",  tonic: 5 },
-  { id: "Gb", name: "Gb major", tonic: 6 },
-  { id: "G",  name: "G major",  tonic: 7 },
-  { id: "Ab", name: "Ab major", tonic: 8 },
-  { id: "A",  name: "A major",  tonic: 9 },
-  { id: "Bb", name: "Bb major", tonic: 10 },
-  { id: "B",  name: "B major",  tonic: 11 },
-  // Minor keys reuse the same tonic — the progression itself determines mode
-  { id: "Am", name: "A minor",  tonic: 9 },
-  { id: "Em", name: "E minor",  tonic: 4 },
-  { id: "Dm", name: "D minor",  tonic: 2 },
+  { id: "C",  name: "C",       tonic: 0 },
+  { id: "Db", name: "C♯ / D♭", tonic: 1 },
+  { id: "D",  name: "D",       tonic: 2 },
+  { id: "Eb", name: "D♯ / E♭", tonic: 3 },
+  { id: "E",  name: "E",       tonic: 4 },
+  { id: "F",  name: "F",       tonic: 5 },
+  { id: "Gb", name: "F♯ / G♭", tonic: 6 },
+  { id: "G",  name: "G",       tonic: 7 },
+  { id: "Ab", name: "G♯ / A♭", tonic: 8 },
+  { id: "A",  name: "A",       tonic: 9 },
+  { id: "Bb", name: "A♯ / B♭", tonic: 10 },
+  { id: "B",  name: "B",       tonic: 11 },
 ];
 
+const LEGACY_KEY_ALIASES = { Am: "A", Em: "E", Dm: "D" };
+
+export function normalizeKeyId(keyId) {
+  return LEGACY_KEY_ALIASES[keyId] ?? keyId;
+}
+
 export const PROGRESSIONS = [
+  {
+    id: "i-VI-III-VII",
+    name: "i · VI · III · VII  (uplifting trance)",
+    mode: "minor",
+    chords: [
+      { root: 0, quality: "m" },
+      { root: 8, quality: "maj" },
+      { root: 3, quality: "maj" },
+      { root: 10, quality: "maj" },
+    ],
+  },
+  {
+    id: "i-III-VII-VI",
+    name: "i · III · VII · VI  (anthemic)",
+    mode: "minor",
+    chords: [
+      { root: 0, quality: "m" },
+      { root: 3, quality: "maj" },
+      { root: 10, quality: "maj" },
+      { root: 8, quality: "maj" },
+    ],
+  },
+  {
+    id: "i-VII-VI-VII",
+    name: "i · VII · VI · VII  (driving)",
+    mode: "minor",
+    chords: [
+      { root: 0, quality: "m" },
+      { root: 10, quality: "maj" },
+      { root: 8, quality: "maj" },
+      { root: 10, quality: "maj" },
+    ],
+  },
+  {
+    id: "i-VI-iv-V",
+    name: "i · VI · iv · V  (harmonic-minor lift)",
+    mode: "minor",
+    scale: "harmonic minor",
+    chords: [
+      { root: 0, quality: "m" },
+      { root: 8, quality: "maj" },
+      { root: 5, quality: "m" },
+      { root: 7, quality: "maj" },
+    ],
+  },
+  {
+    id: "VI-VII-i-i",
+    name: "VI · VII · i · i  (resolved)",
+    mode: "minor",
+    chords: [
+      { root: 8, quality: "maj" },
+      { root: 10, quality: "maj" },
+      { root: 0, quality: "m" },
+      { root: 0, quality: "m" },
+    ],
+  },
+  {
+    id: "i-v-VI-IV",
+    name: "i · v · VI · IV  (progressive trance)",
+    mode: "minor",
+    chords: [
+      { root: 0, quality: "m" },
+      { root: 7, quality: "m" },
+      { root: 8, quality: "maj" },
+      { root: 5, quality: "maj" },
+    ],
+  },
   {
     id: "Imaj7-vi7-IVmaj7-V7",
     name: "Imaj7 · vi7 · IVmaj7 · V7  (classic lofi)",
@@ -123,5 +192,5 @@ export const PROGRESSIONS = [
   },
 ];
 
-export const DEFAULT_KEY_ID = "C";
-export const DEFAULT_PROGRESSION_ID = "Imaj7-vi7-IVmaj7-V7";
+export const DEFAULT_KEY_ID = "A";
+export const DEFAULT_PROGRESSION_ID = "i-VI-III-VII";
