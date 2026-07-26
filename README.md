@@ -239,7 +239,7 @@ npx wrangler deploy
 
 ### Custom domain
 
-The `chillmusic.digital` and `www.chillmusic.digital` hostnames are already declared in `wrangler.toml`. Cloudflare manages their routes for the `chillmusic-digital` Worker; the zone and DNS records must remain active in the same Cloudflare account.
+Both production hostnames are declared in `wrangler.toml`. The apex is a Worker custom domain; `www.chillmusic.digital/*` is a Worker route over its existing proxied DNS record. Keep the zone and the `www` DNS record active in the same Cloudflare account.
 
 ### Verify a release
 

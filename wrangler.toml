@@ -8,8 +8,8 @@ pattern = "chillmusic.digital"
 custom_domain = true
 
 [[routes]]
-pattern = "www.chillmusic.digital"
-custom_domain = true
+pattern = "www.chillmusic.digital/*"
+zone_name = "chillmusic.digital"
 
 # Run these once to create the real resources, then paste the IDs back here:
 #   npx wrangler d1 create chillmusic
