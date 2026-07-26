@@ -19,7 +19,7 @@ const Deck = styled.div`
   margin-top: 0.75rem;
   background: #060810;
   border: 1px solid #192638;
-  border-top: 2px solid #253a50;
+  border-top: 2px solid #47758b;
   border-radius: 5px;
   overflow: hidden;
   box-shadow:
@@ -36,7 +36,7 @@ const DeckTop = styled.div`
   grid-template-columns: 1fr 160px;
   border-bottom: 1px solid #0f1820;
 
-  @media (max-width: 520px) {
+  @media (max-width: 600px) {
     grid-template-columns: 1fr;
   }
 `;
@@ -49,7 +49,7 @@ const CircuitSection = styled.div`
   display: flex;
   flex-direction: column;
 
-  @media (max-width: 520px) {
+  @media (max-width: 600px) {
     border-right: none;
     border-bottom: 1px solid #0f1820;
   }
@@ -60,7 +60,7 @@ const SectionLabel = styled.div`
   font-size: 0.46rem;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: #151f2a;
+  color: #54768a;
   margin-bottom: 0.3rem;
   user-select: none;
 `;
@@ -97,7 +97,7 @@ const LcdRow = styled.div`
   font-family: "Share Tech Mono", monospace;
   font-size: ${({ $big }) => ($big ? "0.8rem" : "0.62rem")};
   letter-spacing: ${({ $big }) => ($big ? "0.06em" : "0.1em")};
-  color: ${({ $active }) => ($active ? "#ff8c00" : "#1e3040")};
+  color: ${({ $active }) => ($active ? "#ff8c00" : "#668ca3")};
   text-shadow: ${({ $active }) =>
     $active ? "0 0 8px rgba(255,140,0,0.55)" : "none"};
   transition: color 250ms ease, text-shadow 250ms ease;
@@ -115,6 +115,13 @@ const DeckBottom = styled.div`
   padding: 0.5rem 0.7rem;
   background: linear-gradient(180deg, #09010f 0%, #060810 100%);
   flex-wrap: wrap;
+
+  @media (max-width: 600px) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.65rem;
+  }
 `;
 
 const Groove = styled.div`
@@ -129,6 +136,8 @@ const Groove = styled.div`
   );
   margin: 0 0.1rem;
   flex-shrink: 0;
+
+  @media (max-width: 600px) { display: none; }
 `;
 
 // Big 3D transport buttons (Play, Stop)
@@ -161,6 +170,14 @@ const TransBtn = styled.button`
     opacity: 0.28;
     cursor: not-allowed;
   }
+
+  @media (max-width: 1100px) { min-height: 40px; }
+
+  @media (max-width: 600px) {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+  }
 `;
 
 const PlayTransBtn = styled(TransBtn)`
@@ -192,7 +209,7 @@ const StopTransBtn = styled(TransBtn)`
     rgba(0, 212, 180, 0.09) 0%,
     rgba(0, 160, 135, 0.05) 100%
   );
-  color: #00c4a8;
+  color: #36e8c8;
   border-color: rgba(0, 212, 180, 0.22);
 
   &:hover {
@@ -219,7 +236,7 @@ const UtilBtn = styled.button`
   border-radius: 2px;
   border: 1px solid #141e28;
   background: linear-gradient(180deg, #0d1420 0%, #080c18 100%);
-  color: #2a4050;
+  color: #5e8295;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 1px 3px rgba(0, 0, 0, 0.5);
@@ -243,13 +260,23 @@ const UtilBtn = styled.button`
     opacity: 0.18;
     cursor: not-allowed;
   }
+
+  @media (max-width: 1100px) { min-height: 36px; }
+
+  @media (max-width: 600px) {
+    width: 100%;
+    min-height: 40px;
+    padding: 0.45rem 0.4rem;
+  }
 `;
 
 const ZenUtilBtn = styled(UtilBtn)`
   margin-left: auto;
 
+  @media (max-width: 600px) { margin-left: 0; }
+
   &:hover {
-    color: #00d4b4;
+    color: #36e8c8;
     border-color: rgba(0, 212, 180, 0.28);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.03),

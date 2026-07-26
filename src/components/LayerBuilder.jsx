@@ -1,10 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ARRANGEMENTS, DEFAULT_CONTEXT } from "../data/arrangements";
 import { BUILTIN_LAYERS } from "../data/layers";
-import { KEYS, PROGRESSIONS } from "../data/progressions";
+import { KEYS, PROGRESSIONS, normalizeKeyId } from "../data/progressions";
 import { buildHarmony } from "../lib/harmony";
 import { compile } from "../lib/compiler";
+import { applyEnergyToLayers, estimateMixLoad } from "../lib/performance";
 import { applyDecodedLayers, readHashState, shareUrl, writeHashState } from "../lib/share";
+import {
+  compactTimeline,
+  hydrateTimeline,
+  nextSectionId,
+} from "../lib/timeline";
 import {
   createSketchSettings,
   hydrateSketchSettings,
@@ -18,6 +24,7 @@ import {
 import DeckPanel from "./layer-builder/DeckPanel";
 import LayerItem from "./layer-builder/LayerItem";
 import ZenMode from "./layer-builder/ZenMode";
+import TimelinePanel from "./layer-builder/TimelinePanel";
 import {
   ArrangeBtn,
   ArrangeRow,
@@ -41,6 +48,9 @@ import {
   ModalSubmitBtn,
   ModalTitle,
   Notice,
+  MixMeter,
+  MixMeterFill,
+  MixStatus,
   Panel,
   Select,
   Shell,
@@ -48,19 +58,29 @@ import {
   Title,
 } from "./layer-builder/styles";
 
+const ZEN_DOOR_DURATION_MS = 780;
+
 function cloneLayers() {
   return BUILTIN_LAYERS.map((layer) => ({
     ...layer,
     params: { ...layer.params },
+    mixGain: typeof layer.mixGain === "number" ? layer.mixGain : 1,
+    pan: typeof layer.pan === "number" ? layer.pan : 0,
   }));
 }
 
-function arrangementLayers(enabledIds) {
+function arrangementLayers(arrangement) {
+  const enabledIds = new Set(arrangement.enabledLayers);
   return BUILTIN_LAYERS.map((layer) => ({
     ...layer,
-    params: { ...layer.params },
-    enabled: enabledIds.includes(layer.id),
+    params: {
+      ...layer.params,
+      ...(arrangement.layerParams?.[layer.id] ?? {}),
+    },
+    enabled: enabledIds.has(layer.id),
     muted: false,
+    mixGain: 1,
+    pan: 0,
   }));
 }
 
@@ -103,31 +123,66 @@ function hydrateFromHash() {
     ...(decoded
       ? {
           bpm: typeof decoded.b === "number" ? decoded.b : DEFAULT_CONTEXT.bpm,
-          swing: typeof decoded.w === "number" ? decoded.w : DEFAULT_CONTEXT.swing,
-          keyId: typeof decoded.k === "string" ? decoded.k : DEFAULT_CONTEXT.keyId,
+          swing: typeof decoded.w === "number"
+            ? Math.min(0.18, Math.max(0, decoded.w))
+            : DEFAULT_CONTEXT.swing,
+          keyId:
+            typeof decoded.k === "string"
+              ? normalizeKeyId(decoded.k)
+              : DEFAULT_CONTEXT.keyId,
           progressionId:
             typeof decoded.p === "string" ? decoded.p : DEFAULT_CONTEXT.progressionId,
         }
       : {}),
   };
-  return { layers, context, hadHash: Boolean(decoded) };
+  const energy = typeof decoded?.e === "number"
+    ? Math.min(1, Math.max(0, decoded.e))
+    : 0.5;
+  const quantizeBars = [0, 1, 4, 8].includes(decoded?.q) ? decoded.q : 1;
+  return {
+    layers,
+    context,
+    energy,
+    timeline: hydrateTimeline(decoded?.t),
+    quantizeBars,
+    hadHash: Boolean(decoded),
+  };
 }
 
 export default function LayerBuilder({ initialNewsItems = [] }) {
   const initial = useMemo(hydrateFromHash, []);
   const [layers, setLayers] = useState(initial.layers);
   const [context, setContext] = useState(initial.context);
+  const [energy, setEnergy] = useState(initial.energy);
+  const [timeline, setTimeline] = useState(initial.timeline);
+  const [quantizeBars, setQuantizeBars] = useState(initial.quantizeBars);
+  const [queuedSwitch, setQueuedSwitch] = useState(null);
+  const [timelineRunning, setTimelineRunning] = useState(false);
+  const [timelineIndex, setTimelineIndex] = useState(0);
+  const [sectionBar, setSectionBar] = useState(0);
+  const [transportBar, setTransportBar] = useState(0);
   const [shareCopied, setShareCopied] = useState(false);
   const [activeArrangementId, setActiveArrangementId] = useState(null);
   const [soloId, setSoloId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [showControls, setShowControls] = useState(true);
+  const [zenMounted, setZenMounted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [engineStatus, setEngineStatus] = useState("READY");
   const [engineError, setEngineError] = useState("");
   const [volume, setVolume] = useState(0.8);
   const [copied, setCopied] = useState(false);
   const [newsItems, setNewsItems] = useState(initialNewsItems);
+
+  const bpmRef = useRef(initial.context.bpm);
+  const nextBarAtRef = useRef(0);
+  const transportBarRef = useRef(0);
+  const queuedSwitchRef = useRef(null);
+  const timelineRef = useRef(initial.timeline);
+  const timelineRunningRef = useRef(false);
+  const timelineIndexRef = useRef(0);
+  const sectionBarRef = useRef(0);
+  const zenExitTimerRef = useRef(null);
 
   useEffect(() => {
     if (newsItems.length > 0) return;
@@ -184,15 +239,43 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     setStrudelVolume(volume);
   }, [volume]);
 
+  useEffect(() => () => {
+    if (zenExitTimerRef.current) window.clearTimeout(zenExitTimerRef.current);
+  }, []);
+
+
+  useEffect(() => {
+    bpmRef.current = context.bpm;
+  }, [context.bpm]);
+
+  useEffect(() => {
+    timelineRef.current = timeline;
+  }, [timeline]);
+
+  useEffect(() => {
+    queuedSwitchRef.current = queuedSwitch;
+  }, [queuedSwitch]);
   useEffect(() => {
     const handle = setTimeout(() => {
-      writeHashState({ context, layers });
+      writeHashState({
+        context,
+        layers,
+        energy,
+        timeline: compactTimeline(timeline),
+        quantizeBars,
+      });
     }, 250);
     return () => clearTimeout(handle);
-  }, [context, layers]);
+  }, [context, energy, layers, quantizeBars, timeline]);
 
   function handleShare() {
-    const url = shareUrl({ context, layers });
+    const url = shareUrl({
+      context,
+      layers,
+      energy,
+      timeline: compactTimeline(timeline),
+      quantizeBars,
+    });
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(url).then(() => {
         setShareCopied(true);
@@ -208,9 +291,13 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     () => ({ ...context, ...buildHarmony(context.keyId, context.progressionId) }),
     [context]
   );
+  const renderedLayers = useMemo(
+    () => applyEnergyToLayers(layers, energy),
+    [energy, layers],
+  );
   const { display: generatedCode, stack: stackCode } = useMemo(
-    () => compile(layers, derivedContext, { soloId }),
-    [layers, derivedContext, soloId]
+    () => compile(renderedLayers, derivedContext, { soloId }),
+    [derivedContext, renderedLayers, soloId]
   );
   const activeLayerIds = useMemo(
     () =>
@@ -222,6 +309,10 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
 
   const activeCount = layers.filter((layer) => layer.enabled && !isMuted(layer)).length;
 
+  const mixLoad = useMemo(
+    () => estimateMixLoad(layers, volume, soloId),
+    [layers, soloId, volume],
+  );
   const [displayedCode, setDisplayedCode] = useState(generatedCode);
   const typewriterRef = useRef(null);
   const prevCodeRef = useRef(generatedCode);
@@ -264,6 +355,69 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
       cancelled = true;
     };
   }, [context.bpm, isPlaying, stackCode]);
+
+  useEffect(() => {
+    if (!isPlaying) return undefined;
+
+    const now = performance.now();
+    if (nextBarAtRef.current <= now) {
+      nextBarAtRef.current = now + (240000 / bpmRef.current);
+    }
+
+    const timer = window.setInterval(() => {
+      const tickTime = performance.now();
+      let safety = 0;
+
+      while (tickTime >= nextBarAtRef.current && safety < 4) {
+        safety += 1;
+        const nextTransportBar = transportBarRef.current + 1;
+        transportBarRef.current = nextTransportBar;
+        setTransportBar(nextTransportBar);
+
+        const queued = queuedSwitchRef.current;
+        if (queued && queued.targetBar <= nextTransportBar) {
+          applyArrangementNow(queued.arrangementId);
+          queuedSwitchRef.current = null;
+          setQueuedSwitch(null);
+        }
+
+        if (timelineRunningRef.current) {
+          const currentSection = timelineRef.current[timelineIndexRef.current];
+          const nextSectionBar = sectionBarRef.current + 1;
+
+          if (currentSection && nextSectionBar >= currentSection.bars) {
+            const nextIndex = timelineIndexRef.current + 1;
+            const nextSection = timelineRef.current[nextIndex];
+
+            if (!nextSection) {
+              hushStrudel();
+              timelineRunningRef.current = false;
+              setTimelineRunning(false);
+              setIsPlaying(false);
+              setEngineStatus("COMPLETE");
+              sectionBarRef.current = currentSection.bars;
+              setSectionBar(currentSection.bars);
+              window.clearInterval(timer);
+              return;
+            }
+
+            timelineIndexRef.current = nextIndex;
+            sectionBarRef.current = 0;
+            setTimelineIndex(nextIndex);
+            setSectionBar(0);
+            applyArrangementNow(nextSection.arrangementId);
+          } else {
+            sectionBarRef.current = nextSectionBar;
+            setSectionBar(nextSectionBar);
+          }
+        }
+
+        nextBarAtRef.current += 240000 / bpmRef.current;
+      }
+    }, 40);
+
+    return () => window.clearInterval(timer);
+  }, [isPlaying]);
 
   useEffect(() => {
     if (typewriterRef.current) clearInterval(typewriterRef.current);
@@ -370,16 +524,123 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     resetArrangementSelection();
   }
 
-  function applyArrangement(id) {
+  function applyArrangementNow(id) {
     const arrangement = ARRANGEMENTS.find((item) => item.id === id);
-    if (!arrangement) {
-      return;
-    }
+    if (!arrangement) return;
 
-    setLayers(arrangementLayers(arrangement.enabledLayers));
+    const nextContext = {
+      ...DEFAULT_CONTEXT,
+      ...(arrangement.context ?? {}),
+    };
+    bpmRef.current = nextContext.bpm;
+    setLayers(arrangementLayers(arrangement));
+    setContext(nextContext);
     setActiveArrangementId(id);
     setSoloId(null);
     setExpandedId(null);
+  }
+
+  function stopSequence() {
+    timelineRunningRef.current = false;
+    setTimelineRunning(false);
+  }
+
+  function clearQueuedSwitch() {
+    queuedSwitchRef.current = null;
+    setQueuedSwitch(null);
+  }
+
+  function applyArrangement(id) {
+    stopSequence();
+
+    if (isPlaying && quantizeBars > 0) {
+      const targetBar = Math.ceil(
+        (transportBarRef.current + 1) / quantizeBars,
+      ) * quantizeBars;
+      const queued = { arrangementId: id, targetBar };
+      queuedSwitchRef.current = queued;
+      setQueuedSwitch(queued);
+      return;
+    }
+
+    clearQueuedSwitch();
+    applyArrangementNow(id);
+  }
+
+  function updateTimelineSection(id, changes) {
+    setTimeline((current) => {
+      const next = current.map((section) =>
+        section.id === id ? { ...section, ...changes } : section,
+      );
+      timelineRef.current = next;
+      return next;
+    });
+  }
+
+  function moveTimelineSection(id, direction) {
+    setTimeline((current) => {
+      const index = current.findIndex((section) => section.id === id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      timelineRef.current = next;
+      return next;
+    });
+  }
+
+  function removeTimelineSection(id) {
+    setTimeline((current) => {
+      if (current.length === 1) return current;
+      const next = current.filter((section) => section.id !== id);
+      timelineRef.current = next;
+      return next;
+    });
+  }
+
+  function addTimelineSection() {
+    setTimeline((current) => {
+      const next = [
+        ...current,
+        { id: nextSectionId(), arrangementId: "progressive-drive", bars: 16 },
+      ];
+      timelineRef.current = next;
+      return next;
+    });
+  }
+
+  async function startTimeline() {
+    const firstSection = timelineRef.current[0];
+    if (!firstSection) return;
+
+    try {
+      await ensureStrudelReady();
+      clearQueuedSwitch();
+      applyArrangementNow(firstSection.arrangementId);
+      timelineRunningRef.current = true;
+      timelineIndexRef.current = 0;
+      sectionBarRef.current = 0;
+      transportBarRef.current = 0;
+      setTimelineRunning(true);
+      setTimelineIndex(0);
+      setSectionBar(0);
+      setTransportBar(0);
+      nextBarAtRef.current = performance.now() + (240000 / bpmRef.current);
+      setIsPlaying(true);
+      setEngineStatus("PLAYING TIMELINE");
+      setEngineError("");
+    } catch (error) {
+      timelineRunningRef.current = false;
+      setTimelineRunning(false);
+      setIsPlaying(false);
+      setEngineStatus("ERROR");
+      setEngineError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  function stopTimelineOnly() {
+    stopSequence();
+    setEngineStatus(isPlaying ? "PLAYING" : "READY");
   }
 
   async function handlePlay() {
@@ -389,6 +650,13 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
 
     try {
       await ensureStrudelReady();
+      stopSequence();
+      clearQueuedSwitch();
+      transportBarRef.current = 0;
+      sectionBarRef.current = 0;
+      setTransportBar(0);
+      setSectionBar(0);
+      nextBarAtRef.current = performance.now() + (240000 / bpmRef.current);
       setIsPlaying(true);
       setEngineStatus("PLAYING");
       setEngineError("");
@@ -401,7 +669,11 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
 
   function handleStop() {
     hushStrudel();
+    stopSequence();
+    clearQueuedSwitch();
     setIsPlaying(false);
+    setSectionBar(0);
+    sectionBarRef.current = 0;
     setEngineStatus("STOPPED");
   }
 
@@ -523,6 +795,9 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
         volume,
         soloId,
         activeArrangementId,
+        energy,
+        timeline,
+        quantizeBars,
       }),
     };
 
@@ -595,18 +870,46 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
     }
 
     hushStrudel();
+    stopSequence();
+    clearQueuedSwitch();
     setIsPlaying(false);
     setEngineStatus("STOPPED");
+    bpmRef.current = restored.context.bpm;
     setContext(restored.context);
     setLayers(restored.layers);
     setVolume(restored.volume);
     setSoloId(restored.soloId);
     setActiveArrangementId(restored.activeArrangementId);
+    setEnergy(restored.energy);
+    setTimeline(restored.timeline);
+    timelineRef.current = restored.timeline;
+    setQuantizeBars(restored.quantizeBars);
+    transportBarRef.current = 0;
+    sectionBarRef.current = 0;
+    setTransportBar(0);
+    setSectionBar(0);
     setExpandedId(null);
     setCurrentSketchId(selectedSketch.id);
     setSketchName(selectedSketch.name);
     setSketchesModal(null);
     setSelectedSketch(null);
+  }
+
+  function enterZenMode() {
+    if (zenExitTimerRef.current) window.clearTimeout(zenExitTimerRef.current);
+    zenExitTimerRef.current = null;
+    setZenMounted(true);
+    setShowControls(false);
+  }
+
+  function exitZenMode() {
+    setShowControls(true);
+    if (zenExitTimerRef.current) window.clearTimeout(zenExitTimerRef.current);
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    zenExitTimerRef.current = window.setTimeout(() => {
+      setZenMounted(false);
+      zenExitTimerRef.current = null;
+    }, reduceMotion ? 0 : ZEN_DOOR_DURATION_MS);
   }
 
   async function handleDeleteSketch(id) {
@@ -642,11 +945,11 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
         rel="stylesheet"
       />
 
-      {!showControls && (
+      {zenMounted && (
         <ZenMode
           isPlaying={isPlaying}
           items={newsItems}
-          onExit={() => setShowControls(true)}
+          onExit={exitZenMode}
         />
       )}
 
@@ -853,9 +1156,12 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
         </ModalOverlay>
       )}
 
-      {showControls && (
-        <Shell>
-          <Panel>
+      <Shell
+        $zenOpen={!showControls}
+        aria-hidden={!showControls}
+        inert={!showControls ? true : undefined}
+      >
+          <Panel $doorSide="left" $zenOpen={!showControls}>
             <Eyebrow>Layer Builder</Eyebrow>
             <Title>Trance Composer</Title>
 
@@ -864,6 +1170,7 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
                 <ArrangeBtn
                   key={arrangement.id}
                   $active={activeArrangementId === arrangement.id}
+                  $queued={queuedSwitch?.arrangementId === arrangement.id}
                   onClick={() => applyArrangement(arrangement.id)}
                   title={arrangement.description}
                 >
@@ -879,6 +1186,100 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
                 </ArrangeBtn>
               )}
             </ArrangeRow>
+
+            <Divider />
+
+            <LayerList>
+              {sortedLayers.map((layer, index) => (
+                <LayerItem
+                  key={layer.id}
+                  layer={layer}
+                  isExpanded={expandedId === layer.id}
+                  isSoloed={soloId === layer.id}
+                  isEffectivelyMuted={isMuted(layer)}
+                  isFirst={index === 0}
+                  isLast={index === sortedLayers.length - 1}
+                  onToggle={() => updateLayer(layer.id, { enabled: !layer.enabled })}
+                  onMute={() => updateLayer(layer.id, { muted: !layer.muted })}
+                  onSolo={() => setSoloId((current) => (current === layer.id ? null : layer.id))}
+                  onMoveUp={() => moveLayer(layer.id, "up")}
+                  onMoveDown={() => moveLayer(layer.id, "down")}
+                  onParamChange={(key, value) => updateParam(layer.id, key, value)}
+                  onMixChange={(changes) => updateLayer(layer.id, changes)}
+                  onExpand={() =>
+                    setExpandedId((current) => (current === layer.id ? null : layer.id))
+                  }
+                />
+              ))}
+            </LayerList>
+
+            <Divider />
+
+            <DisplayBar>
+              <Label>Vol</Label>
+              <Slider
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={volume}
+                onChange={(event) => setVolume(Number(event.target.value))}
+              />
+              <DisplayValue style={{ fontSize: "0.85rem" }}>
+                {Math.round(volume * 100)}%
+              </DisplayValue>
+            </DisplayBar>
+
+            <MixStatus $warning={mixLoad > 0.9}>
+              <span>Headroom</span>
+              <MixMeter><MixMeterFill $load={mixLoad} /></MixMeter>
+              <span>{mixLoad > 0.9 ? "HOT" : `${Math.round(mixLoad * 100)}%`}</span>
+            </MixStatus>
+
+            <DeckPanel
+              isPlaying={isPlaying}
+              engineStatus={engineStatus}
+              activeCount={activeCount}
+              bpm={context.bpm}
+              stackCode={stackCode}
+              user={user}
+              onPlay={handlePlay}
+              onStop={handleStop}
+              onSave={openSave}
+              onLoad={openLoad}
+              onAccount={() => openAuth("login")}
+              onLogout={handleLogout}
+              onZen={enterZenMode}
+              onShare={handleShare}
+              shareCopied={shareCopied}
+            />
+
+            {engineError && <Notice>{engineError}</Notice>}
+            <Notice>Audio starts after the first click. Presets launch on the selected bar boundary.</Notice>
+          </Panel>
+
+          <Panel $doorSide="right" $zenOpen={!showControls}>
+
+            <TimelinePanel
+              timeline={timeline}
+              timelineRunning={timelineRunning}
+              timelineIndex={timelineIndex}
+              sectionBar={sectionBar}
+              transportBar={transportBar}
+              queuedArrangementId={queuedSwitch?.arrangementId ?? null}
+              quantizeBars={quantizeBars}
+              onQuantizeChange={(value) => {
+                setQuantizeBars(value);
+                clearQueuedSwitch();
+              }}
+              onRun={startTimeline}
+              onStopSequence={stopTimelineOnly}
+              onLaunch={applyArrangement}
+              onChangeSection={updateTimelineSection}
+              onMoveSection={moveTimelineSection}
+              onRemoveSection={removeTimelineSection}
+              onAddSection={addTimelineSection}
+            />
 
             <DisplayBar style={{ marginTop: "0.6rem" }}>
               <Label>BPM</Label>
@@ -901,8 +1302,8 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
               <Slider
                 type="range"
                 min={0}
-                max={0.45}
-                step={0.03}
+                max={0.18}
+                step={0.01}
                 value={context.swing}
                 onChange={(event) => {
                   setContext((current) => ({ ...current, swing: Number(event.target.value) }));
@@ -910,12 +1311,12 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
                 }}
               />
               <DisplayValue style={{ fontSize: "0.85rem" }}>
-                {Math.round((context.swing / 0.45) * 100)}%
+                {Math.round((context.swing / 0.18) * 100)}%
               </DisplayValue>
             </DisplayBar>
 
             <DisplayBar style={{ marginTop: "0.4rem" }}>
-              <Label>Key</Label>
+              <Label>Tonic</Label>
               <Select
                 value={context.keyId}
                 onChange={(event) => {
@@ -946,71 +1347,23 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
               </Select>
             </DisplayBar>
 
-            <Divider />
-
-            <LayerList>
-              {sortedLayers.map((layer, index) => (
-                <LayerItem
-                  key={layer.id}
-                  layer={layer}
-                  isExpanded={expandedId === layer.id}
-                  isSoloed={soloId === layer.id}
-                  isEffectivelyMuted={isMuted(layer)}
-                  isFirst={index === 0}
-                  isLast={index === sortedLayers.length - 1}
-                  onToggle={() => updateLayer(layer.id, { enabled: !layer.enabled })}
-                  onMute={() => updateLayer(layer.id, { muted: !layer.muted })}
-                  onSolo={() => setSoloId((current) => (current === layer.id ? null : layer.id))}
-                  onMoveUp={() => moveLayer(layer.id, "up")}
-                  onMoveDown={() => moveLayer(layer.id, "down")}
-                  onParamChange={(key, value) => updateParam(layer.id, key, value)}
-                  onExpand={() =>
-                    setExpandedId((current) => (current === layer.id ? null : layer.id))
-                  }
-                />
-              ))}
-            </LayerList>
-
-            <Divider />
-
-            <DisplayBar>
-              <Label>Vol</Label>
+            <DisplayBar style={{ marginTop: "0.4rem" }}>
+              <Label>Energy</Label>
               <Slider
+                aria-label="Energy macro"
                 type="range"
                 min={0}
                 max={1}
                 step={0.01}
-                value={volume}
-                onChange={(event) => setVolume(Number(event.target.value))}
+                value={energy}
+                onChange={(event) => setEnergy(Number(event.target.value))}
               />
               <DisplayValue style={{ fontSize: "0.85rem" }}>
-                {Math.round(volume * 100)}%
+                {Math.round(energy * 100)}%
               </DisplayValue>
             </DisplayBar>
 
-            <DeckPanel
-              isPlaying={isPlaying}
-              engineStatus={engineStatus}
-              activeCount={activeCount}
-              bpm={context.bpm}
-              stackCode={stackCode}
-              user={user}
-              onPlay={handlePlay}
-              onStop={handleStop}
-              onSave={openSave}
-              onLoad={openLoad}
-              onAccount={() => openAuth("login")}
-              onLogout={handleLogout}
-              onZen={() => setShowControls(false)}
-              onShare={handleShare}
-              shareCopied={shareCopied}
-            />
-
-            {engineError && <Notice>{engineError}</Notice>}
-            <Notice>Audio starts after the first click. Changes take effect on Play.</Notice>
-          </Panel>
-
-          <Panel>
+            <Divider />
             <CodeHead>
               <Eyebrow style={{ margin: 0 }}>Generated Code</Eyebrow>
               <CopyBtn $done={copied} onClick={handleCopy}>
@@ -1020,7 +1373,6 @@ export default function LayerBuilder({ initialNewsItems = [] }) {
             <CodePanel>{displayedCode}</CodePanel>
           </Panel>
         </Shell>
-      )}
     </>
   );
 }

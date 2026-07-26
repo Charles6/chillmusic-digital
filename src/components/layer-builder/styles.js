@@ -5,7 +5,7 @@ const styled = styledImport.default ?? styledImport;
 export const CATEGORY_COLOR = {
   drums: "#ff6b35",
   bass: "#ff3d6b",
-  harmony: "#00d4b4",
+  harmony: "#36e8c8",
   melody: "#c080ff",
   fx: "#40b4ff",
 };
@@ -38,12 +38,26 @@ export const GlobalStyle = createGlobalStyle`
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
 
+  html { -webkit-text-size-adjust: 100%; }
+
   html, body {
     margin: 0;
     min-height: 100%;
     background: #040608;
     font-family: "Outfit", sans-serif;
-    color: #c8a96a;
+    color: #dec680;
+  }
+
+  body { overflow-x: hidden; }
+
+  button, input, select { touch-action: manipulation; }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  a:focus-visible {
+    outline: 2px solid rgba(78, 205, 255, 0.8);
+    outline-offset: 2px;
   }
 
   body::after {
@@ -60,30 +74,57 @@ export const GlobalStyle = createGlobalStyle`
       rgba(0, 0, 0, 0.13) 4px
     );
   }
+
+  @media (max-width: 600px) {
+    input[type="text"],
+    input[type="password"],
+    select { font-size: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 `;
 
 export const Shell = styled.main`
-  width: min(1200px, calc(100% - 2rem));
+  position: relative;
+  z-index: 60;
+  width: min(1080px, calc(100% - 2rem));
   margin: 0 auto;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   align-items: stretch;
   padding: 1.5rem 0;
+  pointer-events: ${({ $zenOpen }) => ($zenOpen ? "none" : "auto")};
 
   @media (max-width: 960px) {
     grid-template-columns: 1fr;
+    gap: 0.85rem;
     padding: 1rem 0 2rem;
+    width: min(760px, calc(100% - 2rem));
+  }
+
+  @media (max-width: 600px) {
+    gap: 0.65rem;
+    padding: 0.5rem 0 1.25rem;
+    width: calc(100% - 1rem);
   }
 `;
 
 export const Panel = styled.section`
   position: relative;
+  min-width: 0;
   padding: 1.25rem;
   background: #060a10;
-  border: 1px solid #1c2e3e;
-  border-top-color: #2a4050;
+  border: 1px solid #29475a;
+  border-top-color: #5e8295;
   border-radius: 6px;
   box-shadow:
     0 0 0 1px #020406,
@@ -92,6 +133,23 @@ export const Panel = styled.section`
   display: flex;
   flex-direction: column;
   max-height: 92vh;
+  transform: ${({ $zenOpen, $doorSide }) =>
+    $zenOpen
+      ? $doorSide === "left"
+        ? "translate3d(-110vw, 0, 0)"
+        : "translate3d(110vw, 0, 0)"
+      : "translate3d(0, 0, 0)"};
+  transform-origin: ${({ $doorSide }) => ($doorSide === "left" ? "right center" : "left center")};
+  transition: transform 780ms cubic-bezier(0.76, 0, 0.24, 1);
+  will-change: transform;
+  backface-visibility: hidden;
+
+  @media (max-width: 960px) { max-height: none; }
+
+  @media (max-width: 600px) {
+    padding: 0.75rem;
+    border-radius: 4px;
+  }
 `;
 
 export const Eyebrow = styled.p`
@@ -121,7 +179,7 @@ export const Notice = styled.p`
   font-family: "Share Tech Mono", monospace;
   font-size: 0.7rem;
   letter-spacing: 0.05em;
-  color: #2a4850;
+  color: #79a9b8;
   line-height: 1.6;
 `;
 
@@ -130,7 +188,7 @@ export const Label = styled.span`
   font-size: 0.62rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: #3a6070;
+  color: #79b3c5;
 `;
 
 export const ArrangeRow = styled.div`
@@ -138,14 +196,22 @@ export const ArrangeRow = styled.div`
   gap: 0.4rem;
   flex-wrap: wrap;
   margin: 0.85rem 0 0;
+
+  @media (max-width: 960px) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (max-width: 520px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
 `;
 
 export const ArrangeBtn = styled.button`
-  border: 1px solid ${({ $active }) =>
-    $active ? "rgba(255,140,0,0.75)" : "#1a2e3a"};
-  background: ${({ $active }) =>
-    $active ? "rgba(255,140,0,0.12)" : "#050810"};
-  color: ${({ $active }) => ($active ? "#ff8c00" : "#2e5060")};
+  border: 1px solid ${({ $active, $queued }) => $active ? "rgba(255,140,0,0.75)" : $queued ? "rgba(54,232,200,0.72)" : "#1a2e3a"};
+  background: ${({ $active, $queued }) => $active ? "rgba(255,140,0,0.12)" : $queued ? "rgba(54,232,200,0.12)" : "#050810"};
+  color: ${({ $active, $queued }) => $active ? "#ff8c00" : $queued ? "#36e8c8" : "#78abba"};
   border-radius: 3px;
   padding: 0.28rem 0.7rem;
   font-family: "Share Tech Mono", monospace;
@@ -153,15 +219,27 @@ export const ArrangeBtn = styled.button`
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: ${({ $active }) =>
+  box-shadow: ${({ $active, $queued }) =>
     $active
       ? "0 0 10px rgba(255,140,0,0.22), inset 0 0 8px rgba(255,140,0,0.06)"
-      : "inset 0 1px 4px rgba(0,0,0,0.5)"};
+      : $queued ? "0 0 12px rgba(54,232,200,0.2)" : "inset 0 1px 4px rgba(0,0,0,0.5)"};
   transition: all 120ms ease;
 
+  @media (max-width: 1100px) { min-height: 40px; }
+  @media (max-width: 960px) { width: 100%; }
+
+  @media (max-width: 520px) {
+    min-height: 42px;
+    padding: 0.5rem 0.35rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+  }
+
   &:hover {
-    border-color: rgba(255, 140, 0, 0.35);
-    color: #7a6030;
+    border-color: rgba(78, 205, 255, 0.62);
+    background: rgba(52, 167, 212, 0.12);
+    color: #b9e9f5;
+    box-shadow: 0 0 12px rgba(52, 167, 212, 0.16);
   }
 `;
 
@@ -175,6 +253,11 @@ export const DisplayBar = styled.div`
   border: 1px solid #0d1824;
   border-radius: 3px;
   box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6);
+
+  @media (max-width: 520px) {
+    gap: 0.45rem;
+    padding: 0.55rem 0.6rem;
+  }
 `;
 
 export const DisplayValue = styled.strong`
@@ -189,14 +272,17 @@ export const DisplayValue = styled.strong`
 
 export const Slider = styled.input`
   flex: 1;
+  min-width: 0;
   accent-color: #ff8c00;
   cursor: pointer;
 `;
 
 export const Select = styled.select`
   flex: 1;
+  min-width: 0;
+  width: 100%;
   background: #050810;
-  color: #c8a96a;
+  color: #dec680;
   border: 1px solid #1a2e3a;
   border-radius: 3px;
   padding: 0.3rem 0.5rem;
@@ -209,6 +295,8 @@ export const Select = styled.select`
     outline: none;
     border-color: rgba(255, 140, 0, 0.55);
   }
+
+  @media (max-width: 600px) { min-height: 42px; }
 `;
 
 export const Divider = styled.div`
@@ -233,21 +321,36 @@ export const LayerList = styled.div`
   gap: 0.35rem;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: #1c2e3e transparent;
+  scrollbar-color: #47758b transparent;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 960px) { max-height: min(58vh, 42rem); }
+  @media (max-width: 600px) { max-height: 58dvh; }
 `;
 
 export const LayerCard = styled.div`
   border: 1px solid
     ${({ $on, $dimmed }) =>
-      $dimmed ? "#0a1018" : $on ? "rgba(255,140,0,0.38)" : "#141e28"};
+      $dimmed ? "#172a36" : $on ? "rgba(255,140,0,0.46)" : "#29475a"};
   border-radius: 3px;
   background: ${({ $on, $dimmed }) =>
-    $dimmed ? "#040609" : $on ? "rgba(255,140,0,0.055)" : "#080c14"};
+    $dimmed ? "#05090d" : $on ? "rgba(255,140,0,0.065)" : "#09121a"};
   box-shadow: ${({ $on }) =>
     $on ? "0 0 14px rgba(255,140,0,0.1)" : "none"};
   transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
   overflow: hidden;
   flex-shrink: 0;
+  &:hover {
+    border-color: ${({ $on }) =>
+      $on ? "rgba(255,157,36,0.78)" : "rgba(78,205,255,0.68)"};
+    background: ${({ $on }) =>
+      $on ? "rgba(255,140,0,0.11)" : "rgba(52,167,212,0.1)"};
+    box-shadow: ${({ $on }) =>
+      $on
+        ? "0 0 18px rgba(255,140,0,0.18)"
+        : "0 0 16px rgba(52,167,212,0.14)"};
+  }
 `;
 
 export const LayerHead = styled.div`
@@ -255,6 +358,13 @@ export const LayerHead = styled.div`
   align-items: center;
   gap: 0.45rem;
   padding: 0.5rem 0.65rem;
+
+  @media (max-width: 520px) {
+    display: grid;
+    grid-template-columns: 42px 6px minmax(0, 1fr);
+    gap: 0.45rem;
+    padding: 0.55rem;
+  }
 `;
 
 export const Toggle = styled.button`
@@ -273,6 +383,11 @@ export const Toggle = styled.button`
       : "inset 0 1px 4px rgba(0,0,0,0.6)"};
   transition: all 120ms ease;
 
+  &:hover {
+    border-color: rgba(78, 205, 255, 0.78);
+    box-shadow: 0 0 9px rgba(52, 167, 212, 0.3);
+  }
+
   &::after {
     content: "";
     position: absolute;
@@ -283,6 +398,31 @@ export const Toggle = styled.button`
     background: ${({ $on }) => ($on ? "#ff8c00" : "#1a2a32")};
     box-shadow: ${({ $on }) => ($on ? "0 0 5px #ff8c00" : "none")};
     transition: left 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  }
+
+  @media (max-width: 1100px) {
+    width: 38px;
+    height: 22px;
+
+    &::after {
+      top: 3px;
+      left: ({ $on }) => ($on ? "19px" : "3px");
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    width: 42px;
+    height: 24px;
+    border-radius: 3px;
+
+    &::after {
+      top: 3px;
+      left: ${({ $on }) => ($on ? "21px" : "3px")};
+      width: 16px;
+      height: 16px;
+    }
   }
 `;
 
@@ -299,17 +439,30 @@ export const LayerName = styled.span`
   flex: 1;
   font-size: 0.85rem;
   font-weight: 500;
-  color: ${({ $dimmed }) => ($dimmed ? "rgba(100,130,140,0.3)" : "#c8a96a")};
+  color: ${({ $dimmed }) => ($dimmed ? "rgba(121,169,184,0.58)" : "#dec680")};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color 140ms ease;
+
+  @media (max-width: 520px) {
+    white-space: normal;
+    line-height: 1.25;
+  }
 `;
 
 export const Chips = styled.div`
   display: flex;
   gap: 0.2rem;
   flex-shrink: 0;
+
+  @media (max-width: 520px) {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    margin-top: 0.1rem;
+  }
 `;
 
 export const Chip = styled.button`
@@ -318,7 +471,7 @@ export const Chip = styled.button`
   border-radius: 2px;
   border: 1px solid ${({ $active }) => ($active ? "rgba(255,140,0,0.65)" : "#141e28")};
   background: ${({ $active }) => ($active ? "rgba(255,140,0,0.14)" : "#040810")};
-  color: ${({ $active }) => ($active ? "#ff8c00" : "#1e3a48")};
+  color: ${({ $active }) => ($active ? "#ff8c00" : "#6f9fb2")};
   font-family: "Share Tech Mono", monospace;
   font-size: 0.5rem;
   font-weight: 700;
@@ -330,13 +483,27 @@ export const Chip = styled.button`
   transition: all 100ms ease;
 
   &:hover:not(:disabled) {
-    border-color: rgba(255, 140, 0, 0.3);
-    color: #5a8090;
+    border-color: rgba(78, 205, 255, 0.65);
+    background: rgba(52, 167, 212, 0.16);
+    color: #c4f0f7;
+    box-shadow: 0 0 8px rgba(52, 167, 212, 0.2);
   }
 
   &:disabled {
     opacity: 0.18;
     cursor: default;
+  }
+
+  @media (max-width: 1100px) {
+    width: 32px;
+    height: 32px;
+    font-size: 0.58rem;
+  }
+
+  @media (max-width: 520px) {
+    width: 40px;
+    height: 40px;
+    font-size: 0.65rem;
   }
 `;
 
@@ -346,7 +513,7 @@ export const Chevron = styled.button`
   border-radius: 2px;
   border: 1px solid #141e28;
   background: #040810;
-  color: #1e3a48;
+  color: #6f9fb2;
   font-size: 0.7rem;
   cursor: pointer;
   display: flex;
@@ -357,19 +524,36 @@ export const Chevron = styled.button`
   transition: transform 160ms ease, color 120ms ease;
 
   &:hover {
-    color: #5a8090;
+    color: #c4f0f7;
+    border-color: rgba(78, 205, 255, 0.65);
+    background: rgba(52, 167, 212, 0.16);
+    box-shadow: 0 0 8px rgba(52, 167, 212, 0.2);
+  }
+
+  @media (max-width: 1100px) {
+    width: 32px;
+    height: 32px;
+    font-size: 0.82rem;
+  }
+
+  @media (max-width: 520px) {
+    width: 40px;
+    height: 40px;
+    font-size: 0.95rem;
   }
 `;
 
 export const LayerBody = styled.div`
   padding: 0 0.65rem 0.65rem;
   border-top: 1px solid rgba(255, 140, 0, 0.07);
+
+  @media (max-width: 520px) { padding: 0 0.55rem 0.65rem; }
 `;
 
 export const LayerHint = styled.p`
   margin: 0.45rem 0 0.65rem;
   font-size: 0.78rem;
-  color: #2e5060;
+  color: #78abba;
   line-height: 1.5;
 `;
 
@@ -383,12 +567,17 @@ export const ParamRow = styled.div`
   grid-template-columns: 76px 1fr 46px;
   align-items: center;
   gap: 0.45rem;
+
+  @media (max-width: 520px) {
+    grid-template-columns: 70px minmax(0, 1fr) 44px;
+    gap: 0.4rem;
+  }
 `;
 
 export const ParamLabel = styled.label`
   font-family: "Share Tech Mono", monospace;
   font-size: 0.62rem;
-  color: #2e5060;
+  color: #78abba;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 `;
@@ -421,6 +610,8 @@ export const ParamText = styled.input`
     border-color: rgba(255, 140, 0, 0.5);
     box-shadow: 0 0 6px rgba(255, 140, 0, 0.15);
   }
+
+  @media (max-width: 600px) { min-height: 42px; }
 `;
 
 export const ParamSelect = styled.select`
@@ -444,6 +635,8 @@ export const ParamSelect = styled.select`
     background: #020407;
     color: #ff8c00;
   }
+
+  @media (max-width: 600px) { min-height: 42px; }
 `;
 
 export const Footer = styled.div`
@@ -470,6 +663,8 @@ const Btn = styled.button`
     opacity: 0.3;
     cursor: not-allowed;
   }
+
+  @media (max-width: 600px) { min-height: 42px; }
 `;
 
 export const PlayBtn = styled(Btn)`
@@ -486,7 +681,7 @@ export const PlayBtn = styled(Btn)`
 
 export const StopBtn = styled(Btn)`
   background: rgba(0, 212, 180, 0.07);
-  color: #00d4b4;
+  color: #36e8c8;
   border-color: rgba(0, 212, 180, 0.22);
 
   &:hover {
@@ -498,12 +693,12 @@ export const StopBtn = styled(Btn)`
 export const ZenBtn = styled(Btn)`
   margin-left: auto;
   background: transparent;
-  color: #1e3a48;
+  color: #6f9fb2;
   border-color: #141e28;
   padding: 0.55rem 0.75rem;
 
   &:hover {
-    color: #00d4b4;
+    color: #36e8c8;
     border-color: rgba(0, 212, 180, 0.3);
     box-shadow: 0 0 8px rgba(0, 212, 180, 0.12);
   }
@@ -513,19 +708,19 @@ export const StatusText = styled.span`
   font-family: "Share Tech Mono", monospace;
   font-size: 0.65rem;
   letter-spacing: 0.1em;
-  color: #2a4850;
+  color: #79a9b8;
 `;
 
 export const CopyBtn = styled(Btn)`
   background: transparent;
-  color: ${({ $done }) => ($done ? "#00d4b4" : "#2a4850")};
+  color: ${({ $done }) => ($done ? "#36e8c8" : "#79a9b8")};
   border-color: ${({ $done }) =>
     $done ? "rgba(0,212,180,0.4)" : "#141e28"};
   padding: 0.4rem 0.75rem;
   font-size: 0.65rem;
 
   &:hover {
-    color: #00d4b4;
+    color: #36e8c8;
     border-color: rgba(0, 212, 180, 0.3);
   }
 `;
@@ -546,14 +741,27 @@ export const CodePanel = styled.pre`
   border: 1px solid #0d1824;
   border-radius: 3px;
   box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.65);
-  color: #2d8a60;
+  color: #68d99a;
   font-family: "Courier New", Courier, monospace;
   font-size: 0.78rem;
   line-height: 1.7;
   overflow: auto;
   white-space: pre;
   min-height: 0;
-  text-shadow: 0 0 5px rgba(45, 138, 96, 0.45);
+  text-shadow: 0 0 5px rgba(104, 217, 154, 0.38);
+
+  @media (max-width: 960px) {
+    min-height: 20rem;
+    max-height: 52vh;
+  }
+
+  @media (max-width: 600px) {
+    min-height: 16rem;
+    max-height: 48dvh;
+    padding: 0.75rem;
+    font-size: 0.7rem;
+    line-height: 1.55;
+  }
 `;
 
 export const ZenScreen = styled.div`
@@ -642,6 +850,11 @@ export const ZenPlaying = styled.div`
   color: #ff8c00;
   text-shadow: 0 0 10px rgba(255, 140, 0, 0.6);
   animation: ${glow} 1.8s ease-in-out infinite;
+
+  @media (max-width: 600px) {
+    top: max(1rem, env(safe-area-inset-top));
+    right: 1rem;
+  }
 `;
 
 export const ZenHint = styled.div`
@@ -652,6 +865,10 @@ export const ZenHint = styled.div`
   letter-spacing: 0.3em;
   text-transform: uppercase;
   color: #141e28;
+
+  @media (max-width: 600px) {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
 `;
 
 export const ZenNewsRail = styled.div`
@@ -718,7 +935,7 @@ export const ZenNewsDescription = styled.p`
 
 export const AccountBtn = styled(Btn)`
   background: transparent;
-  color: #2a4850;
+  color: #79a9b8;
   border-color: #141e28;
   padding: 0.55rem 0.75rem;
   font-size: 0.65rem;
@@ -732,13 +949,13 @@ export const AccountBtn = styled(Btn)`
 
 export const SaveBtn = styled(Btn)`
   background: transparent;
-  color: #2a4850;
+  color: #79a9b8;
   border-color: #141e28;
   padding: 0.55rem 0.75rem;
   font-size: 0.65rem;
 
   &:hover {
-    color: #00d4b4;
+    color: #36e8c8;
     border-color: rgba(0, 212, 180, 0.3);
     box-shadow: 0 0 8px rgba(0, 212, 180, 0.12);
   }
@@ -757,6 +974,12 @@ export const ModalOverlay = styled.div`
   justify-content: center;
   z-index: 100;
   padding: 1rem;
+
+  @media (max-width: 600px) {
+    align-items: flex-end;
+    padding: 0.5rem;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
 `;
 
 export const ModalPanel = styled.div`
@@ -770,6 +993,14 @@ export const ModalPanel = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+
+  @media (max-width: 600px) {
+    max-width: none;
+    max-height: calc(100dvh - 1rem);
+    overflow-y: auto;
+    padding: 1.1rem;
+    border-radius: 8px 8px 4px 4px;
+  }
 `;
 
 export const ModalTitle = styled.h2`
@@ -795,7 +1026,7 @@ export const ModalInput = styled.input`
   letter-spacing: 0.05em;
   outline: none;
 
-  &::placeholder { color: #1e3a48; }
+  &::placeholder { color: #6f9fb2; }
 
   &:focus {
     border-color: rgba(0, 212, 180, 0.3);
@@ -816,10 +1047,10 @@ export const ModalHint = styled.p`
   font-family: "Share Tech Mono", monospace;
   font-size: 0.68rem;
   letter-spacing: 0.08em;
-  color: #2a4850;
+  color: #79a9b8;
   cursor: pointer;
   text-decoration: underline;
-  text-decoration-color: #1e3a48;
+  text-decoration-color: #6f9fb2;
 
   &:hover { color: #5c8c91; }
 `;
@@ -828,6 +1059,12 @@ export const ModalActions = styled.div`
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
+
+  @media (max-width: 520px) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    > button { width: 100%; }
+  }
 `;
 
 export const ModalSubmitBtn = styled(Btn)`
@@ -845,8 +1082,90 @@ export const ModalSubmitBtn = styled(Btn)`
 
 export const ModalCancelBtn = styled(Btn)`
   background: transparent;
-  color: #2a4850;
+  color: #79a9b8;
   border-color: #141e28;
 
   &:hover { color: #5c8c91; }
+`;
+
+export const MixerStrip = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin: 0.55rem 0 0.7rem;
+  padding: 0.5rem;
+  border: 1px solid #29475a;
+  border-radius: 3px;
+  background: rgba(52, 167, 212, 0.055);
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+`;
+
+export const MixerControl = styled.label`
+  display: grid;
+  grid-template-columns: 30px 1fr 34px;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+
+  @media (max-width: 520px) {
+    grid-template-columns: 36px minmax(0, 1fr) 40px;
+  }
+`;
+
+export const MixerLabel = styled.span`
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.54rem;
+  letter-spacing: 0.08em;
+  color: #79b3c5;
+`;
+
+export const MixerSlider = styled.input`
+  width: 100%;
+  min-width: 0;
+  accent-color: #36e8c8;
+  cursor: pointer;
+`;
+
+export const MixerValue = styled.span`
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.58rem;
+  text-align: right;
+  color: #b9e9f5;
+`;
+
+export const MixStatus = styled.div`
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.4rem;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: ${({ $warning }) => ($warning ? "#ff9d24" : "#79b3c5")};
+`;
+
+export const MixMeter = styled.div`
+  height: 5px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #0b1720;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+`;
+
+export const MixMeterFill = styled.div`
+  width: ${({ $load }) => `${Math.min(100, Math.max(0, $load * 100))}%`};
+  height: 100%;
+  background: ${({ $load }) =>
+    $load > 0.9
+      ? "#ff3d6b"
+      : $load > 0.7
+        ? "#ff9d24"
+        : "#36e8c8"};
+  box-shadow: 0 0 7px currentColor;
+  transition: width 160ms ease, background 160ms ease;
 `;

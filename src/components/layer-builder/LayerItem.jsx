@@ -9,6 +9,11 @@ import {
   LayerHead,
   LayerHint,
   LayerName,
+  MixerControl,
+  MixerLabel,
+  MixerSlider,
+  MixerStrip,
+  MixerValue,
   ParamGrid,
   ParamLabel,
   ParamRow,
@@ -33,6 +38,7 @@ export default function LayerItem({
   onMoveUp,
   onMoveDown,
   onParamChange,
+  onMixChange,
   onExpand,
 }) {
   const color = CATEGORY_COLOR[layer.category] ?? "#3a6070";
@@ -60,6 +66,34 @@ export default function LayerItem({
       {isExpanded && (
         <LayerBody>
           <LayerHint>{layer.description}</LayerHint>
+          <MixerStrip>
+            <MixerControl>
+              <MixerLabel>Gain</MixerLabel>
+              <MixerSlider
+                aria-label={`${layer.name} channel gain`}
+                type="range"
+                min={0}
+                max={1.5}
+                step={0.01}
+                value={layer.mixGain}
+                onChange={(event) => onMixChange({ mixGain: Number(event.target.value) })}
+              />
+              <MixerValue>{layer.mixGain.toFixed(2)}</MixerValue>
+            </MixerControl>
+            <MixerControl>
+              <MixerLabel>Pan</MixerLabel>
+              <MixerSlider
+                aria-label={`${layer.name} pan`}
+                type="range"
+                min={-1}
+                max={1}
+                step={0.01}
+                value={layer.pan}
+                onChange={(event) => onMixChange({ pan: Number(event.target.value) })}
+              />
+              <MixerValue>{layer.pan === 0 ? "C" : layer.pan < 0 ? `L${Math.round(-layer.pan * 100)}` : `R${Math.round(layer.pan * 100)}`}</MixerValue>
+            </MixerControl>
+          </MixerStrip>
           <ParamGrid>
             {layer.paramDefs.map((def) => (
               <ParamRow key={def.key}>
@@ -81,9 +115,14 @@ export default function LayerItem({
                   <ParamSelect
                     id={`${layer.id}-${def.key}`}
                     value={layer.params[def.key]}
-                    onChange={(event) => onParamChange(def.key, event.target.value)}
+                    onChange={(event) => {
+                      const option = def.options.find(
+                        (item) => String(item.value) === event.target.value,
+                      );
+                      onParamChange(def.key, option?.value ?? event.target.value);
+                    }}
                   >
-                    {!def.options.some((o) => o.value === layer.params[def.key]) && (
+                    {!def.options.some((o) => String(o.value) === String(layer.params[def.key])) && (
                       <option value={layer.params[def.key]}>
                         {layer.params[def.key]} (custom)
                       </option>
